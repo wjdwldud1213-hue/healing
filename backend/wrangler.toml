@@ -1,0 +1,10 @@
+name = "healingfood-api"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "groupware-db"
+database_id = "7ab55077-6c43-4c7e-b86d-001b1e20f54d"
+migrations_dir = "drizzle"

@@ -1,0 +1,87 @@
+import { useEffect, useState } from "react";
+import { api } from "../api/client";
+import type { Department } from "../types";
+
+export function DepartmentsPage() {
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  function load() {
+    api.get<Department[]>("/departments").then(setDepartments).catch((e) => setError(e.message));
+  }
+
+  useEffect(load, []);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      await api.post("/departments", { code, name });
+      setCode("");
+      setName("");
+      load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function toggleActive(dept: Department) {
+    await api.patch(`/departments/${dept.id}`, { isActive: !dept.isActive });
+    load();
+  }
+
+  return (
+    <section>
+      <h2>부서 관리</h2>
+      <p className="hint">
+        부서코드는 A~Z 중 한 글자만 배정할 수 있고, 한 번 쓰면 다른 부서에 다시 배정할 수
+        없습니다. (이미 발급된 사번의 의미가 바뀌지 않도록 하기 위함)
+      </p>
+
+      <form onSubmit={handleCreate} className="inline-form">
+        <input
+          placeholder="코드 (예: A)"
+          value={code}
+          maxLength={1}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+        />
+        <input placeholder="부서명" value={name} onChange={(e) => setName(e.target.value)} />
+        <button type="submit" disabled={loading}>
+          부서 추가
+        </button>
+      </form>
+      {error && <p className="error">{error}</p>}
+
+      <table>
+        <thead>
+          <tr>
+            <th>코드</th>
+            <th>부서명</th>
+            <th>상태</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {departments.map((d) => (
+            <tr key={d.id}>
+              <td>{d.code}</td>
+              <td>{d.name}</td>
+              <td>{d.isActive ? "사용중" : "비활성"}</td>
+              <td>
+                <button type="button" onClick={() => toggleActive(d)}>
+                  {d.isActive ? "비활성화" : "다시 사용"}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}

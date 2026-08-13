@@ -71,7 +71,6 @@ export function LoginPage() {
         <div className="login-brand">
           <div className="login-brand-top">
             <div className="login-logo-row">
-              <div className="login-logo-mark">H</div>
               <div className="login-logo-text">Healing Food</div>
             </div>
             <p className="login-company-kr">최상의 제품을 정직하게 공급하는 기업 (주) 힐링푸드</p>

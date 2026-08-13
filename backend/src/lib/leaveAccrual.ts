@@ -30,6 +30,22 @@ function fullMonthsElapsed(
   return Math.max(months, 0);
 }
 
+// 입사일 + n개월째 월급여일(월 앙니버서리)을 구한다. 대상 월에 그 날짜가 없으면(예: 31일생 2월)
+// 그 달의 마지막 날로 당긴다. 배치가 몇 달씩 늦게 돌아도 각 회차가 "실제로 발생한 날짜"의
+// 연도에 정확히 귀속되도록 하기 위함이다(배치를 실행한 날짜가 아니라).
+function addMonthsClamped(
+  hire: { year: number; month: number; day: number },
+  n: number,
+): { year: number; month: number; day: number; dateStr: string } {
+  const totalMonths = hire.month - 1 + n;
+  const year = hire.year + Math.floor(totalMonths / 12);
+  const month = (totalMonths % 12) + 1;
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const day = Math.min(hire.day, daysInMonth);
+  const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return { year, month, day, dateStr };
+}
+
 function roundToHalf(n: number): number {
   return Math.round(n * 2) / 2;
 }
@@ -89,9 +105,15 @@ async function grantLeave(
 /**
  * 매일 실행되는 배치.
  * 1) 입사 1년 미만 직원: 매월 만근 시 1일(최대 11일) — 재직 중이면 만근으로 간주.
- * 2) 1월 1일: 입사 1년 이상 직원의 연간 연차(첫 해는 비례, 3년차부터 2년마다 가산, 최대 25일).
- * leave_grants에 이미 남은 이력 개수를 기준으로 판단하므로 하루에 여러 번/여러 날 실행돼도
- * 중복 발생하지 않는다(멱등) — 배치가 며칠 못 돌았어도 다음 실행에서 부족분만큼 자동으로 채운다.
+ *    배치가 며칠/몇 달 늦게 돌아도, 각 회차는 실제 월 앙니버서리 날짜(addMonthsClamped)의
+ *    연도에 귀속시킨다 — 배치를 실행한 날짜의 연도로 몰아넣지 않는다. 예: 2025-02-10 입사자는
+ *    2025년에 10일, 2026-01-10에 11번째(2026년 귀속) 1일이 발생해야 정확하다.
+ * 2) 입사 1년 이상 직원의 연간 연차(첫 해는 비례, 3년차부터 2년마다 가산, 최대 25일) — hireYear+1부터
+ *    올해까지 아직 발생시키지 않은 연도가 있으면 전부 채운다. "오늘이 1월 1일인지"로 판단하지 않는다 —
+ *    배치가 그 해 1월 1일에 한 번도 못 돌았어도(예: 이 기능 자체가 그 이후에 배포됨) 다음 실행에서
+ *    놓친 연도분을 자동으로 소급 발생시키기 위함이다.
+ * leave_grants에 이미 남은 이력 개수/연도를 기준으로 판단하므로 하루에 여러 번/여러 날(심지어 몇 년)
+ * 못 돌았어도 중복 없이 부족분만큼만 자동으로 채운다(멱등).
  */
 export async function runLeaveAccrualBatch(db: Db): Promise<{ grantedEvents: number }> {
   const today = kstToday();
@@ -120,35 +142,36 @@ export async function runLeaveAccrualBatch(db: Db): Promise<{ grantedEvents: num
       const missing = targetMonthlyGrants - alreadyGranted.length;
       for (let i = 0; i < missing; i++) {
         const monthIndex = alreadyGranted.length + i + 1;
+        const anniversary = addMonthsClamped(hire, monthIndex);
         await grantLeave(
           db,
           emp.employeeId,
-          today.year,
+          anniversary.year,
           1,
           `${MONTHLY_REASON_PREFIX} (${monthIndex}개월차)`,
-          today.dateStr,
+          anniversary.dateStr,
         );
         grantedEvents++;
       }
     }
 
-    if (today.month === 1 && today.day === 1) {
-      const already = await db
-        .select()
-        .from(leaveGrants)
-        .where(
-          and(
-            eq(leaveGrants.employeeId, emp.employeeId),
-            eq(leaveGrants.year, today.year),
-            like(leaveGrants.reason, `${ANNUAL_REASON_PREFIX}%`),
-          ),
-        );
-      if (already.length === 0) {
-        const days = computeAnnualGrantDays(emp.hireDate, today.year);
-        if (days != null && days > 0) {
-          await grantLeave(db, emp.employeeId, today.year, days, ANNUAL_REASON_PREFIX, today.dateStr);
-          grantedEvents++;
-        }
+    const grantedAnnualYears = await db
+      .select()
+      .from(leaveGrants)
+      .where(
+        and(
+          eq(leaveGrants.employeeId, emp.employeeId),
+          like(leaveGrants.reason, `${ANNUAL_REASON_PREFIX}%`),
+        ),
+      );
+    const grantedYearSet = new Set(grantedAnnualYears.map((g) => g.year));
+
+    for (let year = hire.year + 1; year <= today.year; year++) {
+      if (grantedYearSet.has(year)) continue;
+      const days = computeAnnualGrantDays(emp.hireDate, year);
+      if (days != null && days > 0) {
+        await grantLeave(db, emp.employeeId, year, days, ANNUAL_REASON_PREFIX, `${year}-01-01`);
+        grantedEvents++;
       }
     }
   }

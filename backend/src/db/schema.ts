@@ -145,6 +145,9 @@ export const sessions = sqliteTable("sessions", {
     .references(() => employees.employeeId),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   lastActivityAt: text("last_activity_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  // 절대 만료 시각. "로그인 상태 유지" 여부에 따라 로그인 시점에 계산해서 저장한다.
+  // 기존(이 컬럼 추가 이전) 세션은 NULL이며, 이 경우 idle timeout만 적용된다.
+  expiresAt: text("expires_at"),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   revokedAt: text("revoked_at"),

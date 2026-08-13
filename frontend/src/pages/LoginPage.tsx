@@ -55,7 +55,7 @@ export function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      await login(employeeId, password);
+      await login(employeeId, password, rememberMe);
       navigate("/", { replace: true });
     } catch (err) {
       setError((err as Error).message);

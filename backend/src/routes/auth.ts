@@ -6,7 +6,12 @@ import { getDb } from "../lib/db";
 import { generateTempPassword } from "../lib/employeeId";
 import { getPermissionCodes } from "../lib/permissions";
 import { employees, passwordResetRequests, sessions } from "../db/schema";
-import { requireAuth, SESSION_COOKIE } from "../middleware/auth";
+import {
+  requireAuth,
+  SESSION_COOKIE,
+  REMEMBER_ME_SESSION_SECONDS,
+  DEFAULT_SESSION_SECONDS,
+} from "../middleware/auth";
 import { requirePermission } from "../middleware/permission";
 import type { AppEnv } from "../types";
 
@@ -19,10 +24,11 @@ function publicEmployee(employee: typeof employees.$inferSelect) {
 
 authRoute.post("/login", async (c) => {
   const body = await c.req
-    .json<{ employeeId?: string; password?: string }>()
-    .catch(() => ({}) as { employeeId?: string; password?: string });
+    .json<{ employeeId?: string; password?: string; rememberMe?: boolean }>()
+    .catch(() => ({}) as { employeeId?: string; password?: string; rememberMe?: boolean });
   const employeeId = (body.employeeId ?? "").trim().toUpperCase();
   const password = body.password ?? "";
+  const rememberMe = body.rememberMe === true;
 
   const invalid = () => c.json({ error: "사번 또는 비밀번호가 올바르지 않습니다." }, 401);
   if (!employeeId || !password) return invalid();
@@ -37,13 +43,20 @@ authRoute.post("/login", async (c) => {
   const passwordOk = await bcrypt.compare(password, employee.passwordHash);
   if (!passwordOk) return invalid();
 
+  // 로그인 상태 유지 체크 여부로 세션 절대 길이를 정하고, DB에 저장하는
+  // expiresAt과 쿠키의 maxAge가 항상 같은 초 단위 값을 쓰도록 한 곳에서만 계산한다.
+  const sessionSeconds = rememberMe ? REMEMBER_ME_SESSION_SECONDS : DEFAULT_SESSION_SECONDS;
   const sessionId = crypto.randomUUID();
-  const now = new Date().toISOString();
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+  const expiresAt = new Date(nowMs + sessionSeconds * 1000).toISOString();
+
   await db.insert(sessions).values({
     id: sessionId,
     employeeId: employee.employeeId,
-    createdAt: now,
-    lastActivityAt: now,
+    createdAt: nowIso,
+    lastActivityAt: nowIso,
+    expiresAt,
     ipAddress: c.req.header("cf-connecting-ip") ?? null,
     userAgent: c.req.header("user-agent") ?? null,
   });
@@ -53,7 +66,7 @@ authRoute.post("/login", async (c) => {
     sameSite: "Lax",
     secure: new URL(c.req.url).protocol === "https:",
     path: "/",
-    maxAge: 60 * 60 * 12, // 12시간. 그 안에서도 30분 미사용이면 idle timeout으로 먼저 만료됨
+    maxAge: sessionSeconds, // sessions.expiresAt과 동일한 sessionSeconds 값을 그대로 사용
   });
 
   const codes = await getPermissionCodes(db, employee.roleId);

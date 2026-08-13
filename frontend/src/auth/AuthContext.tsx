@@ -6,7 +6,7 @@ import type { Employee } from "../types";
 type AuthState = {
   currentUser: Employee | null;
   loading: boolean;
-  login: (employeeId: string, password: string) => Promise<void>;
+  login: (employeeId: string, password: string, rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -35,10 +35,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => setUnauthorizedHandler(null);
   }, [refresh]);
 
-  async function login(employeeId: string, password: string) {
+  async function login(employeeId: string, password: string, rememberMe = false) {
     const { employee } = await api.post<{ employee: Employee }>("/auth/login", {
       employeeId,
       password,
+      rememberMe,
     });
     setCurrentUser(employee);
   }

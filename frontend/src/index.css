@@ -769,6 +769,27 @@ button[type="submit"] {
   margin-bottom: 4px;
 }
 
+.calendar-day-num.saturday {
+  color: var(--accent);
+}
+
+.calendar-day-num.holiday {
+  color: var(--danger);
+}
+
+.calendar-holiday-name {
+  display: block;
+  font-size: 11px;
+  color: var(--danger);
+  margin-bottom: 2px;
+}
+
+.calendar-jump {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .calendar-badge {
   display: block;
   font-size: 11px;

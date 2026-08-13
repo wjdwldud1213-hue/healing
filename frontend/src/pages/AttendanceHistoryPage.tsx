@@ -16,6 +16,38 @@ type DayRecord = {
 
 const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 
+// 양력 고정 공휴일 — 매년 날짜가 같아서 월-일만으로 어느 해든 계산 가능하다.
+const FIXED_HOLIDAYS: Record<string, string> = {
+  "01-01": "신정",
+  "03-01": "삼일절",
+  "05-05": "어린이날",
+  "06-06": "현충일",
+  "08-15": "광복절",
+  "10-03": "개천절",
+  "10-09": "한글날",
+  "12-25": "크리스마스",
+};
+
+// 설날/추석/부처님오신날(음력 기준)과 대체공휴일은 해마다 날짜가 달라 미리 계산할 수 없다.
+// 확인된 연도만 채워두고, 목록에 없는 해는 음력 공휴일이 표시되지 않는다(양력 고정 공휴일은 계속 표시됨).
+const LUNAR_AND_SUBSTITUTE_HOLIDAYS: Record<string, string> = {
+  "2026-02-16": "설날 연휴",
+  "2026-02-17": "설날",
+  "2026-02-18": "설날 연휴",
+  "2026-03-02": "대체공휴일(삼일절)",
+  "2026-05-24": "부처님오신날",
+  "2026-05-25": "대체공휴일(부처님오신날)",
+  "2026-08-17": "대체공휴일(광복절)",
+  "2026-09-24": "추석 연휴",
+  "2026-09-25": "추석",
+  "2026-09-26": "추석 연휴",
+  "2026-10-05": "대체공휴일(개천절)",
+};
+
+function getHolidayName(dateStr: string): string | null {
+  return LUNAR_AND_SUBSTITUTE_HOLIDAYS[dateStr] ?? FIXED_HOLIDAYS[dateStr.slice(5)] ?? null;
+}
+
 function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
@@ -36,10 +68,17 @@ function eachDateInRange(startDate: string, endDate: string): string[] {
   return dates;
 }
 
+const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => i + 1);
+
 export function AttendanceHistoryPage() {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth() + 1); // 1~12
+  const yearOptions = useMemo(
+    () => Array.from({ length: 11 }, (_, i) => today.getFullYear() - 5 + i),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -145,9 +184,22 @@ export function AttendanceHistoryPage() {
           <button type="button" onClick={() => goToMonth(-1)}>
             ‹ 이전 달
           </button>
-          <h3>
-            {viewYear}년 {viewMonth}월
-          </h3>
+          <div className="calendar-jump">
+            <select value={viewYear} onChange={(e) => setViewYear(Number(e.target.value))}>
+              {yearOptions.map((y) => (
+                <option key={y} value={y}>
+                  {y}년
+                </option>
+              ))}
+            </select>
+            <select value={viewMonth} onChange={(e) => setViewMonth(Number(e.target.value))}>
+              {MONTH_OPTIONS.map((m) => (
+                <option key={m} value={m}>
+                  {m}월
+                </option>
+              ))}
+            </select>
+          </div>
           <button type="button" onClick={() => goToMonth(1)}>
             다음 달 ›
           </button>
@@ -167,13 +219,18 @@ export function AttendanceHistoryPage() {
                 {week.map((cell, j) => {
                   if (!cell) return <td key={j} className="calendar-cell empty" />;
                   const dayRecords = recordsByDate.get(cell.dateStr) ?? [];
+                  const holidayName = getHolidayName(cell.dateStr);
+                  const dayNumClass = holidayName || j === 0 ? "holiday" : j === 6 ? "saturday" : "";
                   return (
                     <td
                       key={j}
                       className={`calendar-cell${cell.dateStr === todayStr ? " today" : ""}${dayRecords.length ? " has-record" : ""}`}
                       onClick={() => setSelectedDate(cell.dateStr)}
                     >
-                      <span className="calendar-day-num">{cell.day}</span>
+                      <span className={`calendar-day-num${dayNumClass ? ` ${dayNumClass}` : ""}`}>
+                        {cell.day}
+                      </span>
+                      {holidayName && <span className="calendar-holiday-name">{holidayName}</span>}
                       {dayRecords.map((r, idx) => (
                         <span
                           key={idx}

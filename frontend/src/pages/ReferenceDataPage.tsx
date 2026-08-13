@@ -52,7 +52,7 @@ export function ReferenceDataPage() {
       <table>
         <thead>
           <tr>
-            <th>이름</th>
+            <th>직급</th>
             <th>상태</th>
             <th></th>
           </tr>

@@ -662,6 +662,10 @@ td {
   margin: 12px 0;
 }
 
+.toolbar-end {
+  margin-left: auto;
+}
+
 .inline-form {
   display: flex;
   gap: 8px;
@@ -715,6 +719,28 @@ button[type="submit"] {
   border-radius: 10px;
   padding: 16px;
   margin-top: 16px;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(27, 59, 47, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 300;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-card .card {
+  margin-top: 0;
 }
 
 .grid-2 {

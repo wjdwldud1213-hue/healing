@@ -19,16 +19,6 @@ export type MenuGroup = {
 // 항목을 추가/삭제하면 AppShell이 자동으로 반영한다 (index.html 시안의 menuData 패턴 유지).
 export const menuData: MenuGroup[] = [
   {
-    id: "attendance",
-    label: "근태관리",
-    icon: '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>',
-    children: [
-      { id: "clock", label: "출근/퇴근", path: "/coming-soon/clock", badge: null },
-      { id: "vacation", label: "휴가신청", path: "/coming-soon/vacation", badge: 2 },
-      { id: "attHistory", label: "근태내역조회", path: "/coming-soon/attHistory", badge: null },
-    ],
-  },
-  {
     id: "hr",
     label: "인사관리",
     icon: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><line x1="3" y1="12" x2="21" y2="12"/>',
@@ -53,6 +43,16 @@ export const menuData: MenuGroup[] = [
         anyOfPermissions: ["EMPLOYEE_APPROVE"],
       },
       { id: "roleManage", label: "역할/권한 관리", path: "/roles", anyOfPermissions: ["ROLE_MANAGE"] },
+    ],
+  },
+  {
+    id: "attendance",
+    label: "근태관리",
+    icon: '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>',
+    children: [
+      { id: "clock", label: "출근/퇴근", path: "/coming-soon/clock", badge: null },
+      { id: "vacation", label: "휴가신청", path: "/coming-soon/vacation", badge: 2 },
+      { id: "attHistory", label: "근태내역조회", path: "/coming-soon/attHistory", badge: null },
     ],
   },
 ];

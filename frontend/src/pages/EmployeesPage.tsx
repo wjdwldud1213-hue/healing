@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { Department, Employee, EmploymentStatus } from "../types";
 import { EmployeeForm } from "../components/EmployeeForm";
+import { Modal } from "../components/Modal";
 import { useAuth } from "../auth/AuthContext";
 
 const STATUS_LABEL: Record<EmploymentStatus, string> = {
@@ -70,12 +71,13 @@ export function EmployeesPage() {
         {canWrite && (
           <button
             type="button"
+            className="toolbar-end"
             onClick={() => {
               setEditing(null);
               setFormMode("create");
             }}
           >
-            새 직원 등록
+            직원 추가
           </button>
         )}
       </div>
@@ -127,14 +129,16 @@ export function EmployeesPage() {
       </table>
 
       {formMode !== "none" && (
-        <EmployeeForm
-          mode={formMode}
-          employee={editing ?? undefined}
-          onDone={() => {
-            setFormMode("none");
-            load();
-          }}
-        />
+        <Modal onClose={() => setFormMode("none")}>
+          <EmployeeForm
+            mode={formMode}
+            employee={editing ?? undefined}
+            onDone={() => {
+              setFormMode("none");
+              load();
+            }}
+          />
+        </Modal>
       )}
     </section>
   );

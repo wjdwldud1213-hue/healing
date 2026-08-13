@@ -7,6 +7,8 @@ import { getPermissionCodes } from "../lib/permissions";
 import {
   departments,
   employeeAssignmentHistory,
+  employeeCompensations,
+  employeeLeaveBalances,
   employees,
   jobGrades,
   jobTitles,
@@ -95,13 +97,27 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
       mobilePhone?: string;
       extensionNumber?: string | null;
       roleId?: number;
+      address?: string | null;
+      baseSalary?: number;
+      initialLeaveDays?: number;
+      employmentStatus?: string;
     }>()
     .catch(() => ({}) as Record<string, never>);
 
   const name = (body.name ?? "").trim();
   const hireDate = (body.hireDate ?? "").trim();
   const mobilePhone = (body.mobilePhone ?? "").trim();
-  const { departmentId, jobGradeId, jobTitleId, roleId, extensionNumber } = body;
+  const {
+    departmentId,
+    jobGradeId,
+    jobTitleId,
+    roleId,
+    extensionNumber,
+    address,
+    baseSalary,
+    initialLeaveDays,
+    employmentStatus,
+  } = body;
 
   if (!name) return c.json({ error: "이름을 입력하세요." }, 400);
   if (!departmentId) return c.json({ error: "부서를 선택하세요." }, 400);
@@ -109,6 +125,12 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
   if (!hireDate) return c.json({ error: "입사일을 입력하세요." }, 400);
   if (!mobilePhone) return c.json({ error: "휴대폰번호를 입력하세요." }, 400);
   if (!roleId) return c.json({ error: "역할(권한)을 선택하세요." }, 400);
+  if (baseSalary != null && baseSalary < 0) return c.json({ error: "급여는 0 이상이어야 합니다." }, 400);
+  if (initialLeaveDays != null && initialLeaveDays < 0)
+    return c.json({ error: "연차일수는 0 이상이어야 합니다." }, 400);
+  if (employmentStatus != null && employmentStatus !== "ACTIVE" && employmentStatus !== "LEAVE") {
+    return c.json({ error: "등록 시 재직상태는 재직 또는 휴직만 선택할 수 있습니다." }, 400);
+  }
 
   const db = getDb(c.env.DB);
 
@@ -138,7 +160,7 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
   const passwordHash = await bcrypt.hash(tempPassword, 10);
   const actorId = c.get("currentUserId");
 
-  await db.batch([
+  const insertStatements = [
     db.insert(employees).values({
       employeeId,
       name,
@@ -148,6 +170,8 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
       hireDate,
       mobilePhone,
       extensionNumber: extensionNumber ?? null,
+      address: address ?? null,
+      employmentStatus: employmentStatus === "LEAVE" ? "LEAVE" : "ACTIVE",
       passwordHash,
       mustChangePassword: true,
       roleId,
@@ -163,7 +187,33 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
       reason: "최초 등록",
       createdBy: actorId,
     }),
-  ]);
+  ] as const;
+
+  const extraStatements = [];
+  if (baseSalary != null) {
+    extraStatements.push(
+      db.insert(employeeCompensations).values({
+        employeeId,
+        baseSalary,
+        effectiveDate: hireDate,
+        reason: "입사",
+        createdBy: actorId,
+      }),
+    );
+  }
+  if (initialLeaveDays != null) {
+    extraStatements.push(
+      db.insert(employeeLeaveBalances).values({
+        employeeId,
+        year: Number(hireDate.slice(0, 4)),
+        grantedDays: initialLeaveDays,
+        usedDays: 0,
+        carriedOverDays: 0,
+      }),
+    );
+  }
+
+  await db.batch([...insertStatements, ...extraStatements]);
 
   const created = await db.query.employees.findFirst({
     ...employeeDetail,

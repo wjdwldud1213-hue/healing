@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
-import { sqliteTable, text, integer, primaryKey, check } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, primaryKey, uniqueIndex, check } from "drizzle-orm/sqlite-core";
 
 // ── 부서 ─────────────────────────────────────────────
 // 부서코드(A~Z)는 한 번 배정되면 다른 부서에 재배정하지 않는다.
@@ -96,6 +96,7 @@ export const employees = sqliteTable(
     statusChangedAt: text("status_changed_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     mobilePhone: text("mobile_phone").notNull(),
     extensionNumber: text("extension_number"),
+    address: text("address"),
     passwordHash: text("password_hash").notNull(),
     mustChangePassword: integer("must_change_password", { mode: "boolean" })
       .notNull()
@@ -136,6 +137,50 @@ export const employeeAssignmentHistory = sqliteTable("employee_assignment_histor
   createdBy: text("created_by"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
+
+// ── 급여 이력 ────────────────────────────────────────
+// employees에는 "현재 급여" 필드를 두지 않는다. 급여는 시점마다 값이 바뀌므로
+// 이 테이블에서 employee_id별로 effective_date가 가장 최근인 행을 조회해 현재값을 구한다.
+export const employeeCompensations = sqliteTable(
+  "employee_compensations",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    employeeId: text("employee_id")
+      .notNull()
+      .references(() => employees.employeeId),
+    baseSalary: integer("base_salary").notNull(),
+    effectiveDate: text("effective_date").notNull(),
+    reason: text("reason"),
+    createdBy: text("created_by"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => [check("employee_compensations_salary_check", sql`${t.baseSalary} >= 0`)],
+);
+
+// ── 연차 이력 (연도별) ────────────────────────────────
+// 연차는 연도마다 발생/사용/이월되는 값이라 employees의 단일 필드로 표현할 수 없다.
+// 잔여 연차 = granted_days + carried_over_days - used_days.
+export const employeeLeaveBalances = sqliteTable(
+  "employee_leave_balances",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    employeeId: text("employee_id")
+      .notNull()
+      .references(() => employees.employeeId),
+    year: integer("year").notNull(),
+    grantedDays: real("granted_days").notNull().default(0),
+    usedDays: real("used_days").notNull().default(0),
+    carriedOverDays: real("carried_over_days").notNull().default(0),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => [
+    uniqueIndex("employee_leave_balances_employee_year_idx").on(t.employeeId, t.year),
+    check(
+      "employee_leave_balances_days_check",
+      sql`${t.grantedDays} >= 0 AND ${t.usedDays} >= 0`,
+    ),
+  ],
+);
 
 // ── 로그인 세션 / 비밀번호 재설정 ───────────────────────
 export const sessions = sqliteTable("sessions", {
@@ -206,6 +251,8 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
   jobTitle: one(jobTitles, { fields: [employees.jobTitleId], references: [jobTitles.id] }),
   role: one(roles, { fields: [employees.roleId], references: [roles.id] }),
   assignmentHistory: many(employeeAssignmentHistory),
+  compensations: many(employeeCompensations),
+  leaveBalances: many(employeeLeaveBalances),
   sessions: many(sessions),
 }));
 
@@ -230,6 +277,20 @@ export const employeeAssignmentHistoryRelations = relations(
     }),
   }),
 );
+
+export const employeeCompensationsRelations = relations(employeeCompensations, ({ one }) => ({
+  employee: one(employees, {
+    fields: [employeeCompensations.employeeId],
+    references: [employees.employeeId],
+  }),
+}));
+
+export const employeeLeaveBalancesRelations = relations(employeeLeaveBalances, ({ one }) => ({
+  employee: one(employees, {
+    fields: [employeeLeaveBalances.employeeId],
+    references: [employees.employeeId],
+  }),
+}));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
   employee: one(employees, { fields: [sessions.employeeId], references: [employees.employeeId] }),

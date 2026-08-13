@@ -15,6 +15,13 @@
       "when": 1786584022494,
       "tag": "0001_amazing_scourge",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786605185033,
+      "tag": "0002_oval_sage",
+      "breakpoints": true
     }
   ]
 }

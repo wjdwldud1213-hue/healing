@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api/client";
-import type { Department, Employee, JobGrade, JobTitle, Role } from "../types";
+import type { Department, Employee, EmploymentStatus, JobGrade, JobTitle, Role } from "../types";
 
 type Props = {
   mode: "create" | "edit";
@@ -26,6 +26,12 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
   const [mobilePhone, setMobilePhone] = useState(employee?.mobilePhone ?? "");
   const [extensionNumber, setExtensionNumber] = useState(employee?.extensionNumber ?? "");
   const [roleId, setRoleId] = useState(employee?.roleId ?? 0);
+  const [address, setAddress] = useState("");
+  const [baseSalary, setBaseSalary] = useState("");
+  const [initialLeaveDays, setInitialLeaveDays] = useState("");
+  const [employmentStatus, setEmploymentStatus] = useState<Extract<EmploymentStatus, "ACTIVE" | "LEAVE">>(
+    "ACTIVE",
+  );
 
   useEffect(() => {
     Promise.all([
@@ -55,6 +61,10 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
           mobilePhone,
           extensionNumber: extensionNumber || null,
           roleId,
+          address: address || null,
+          baseSalary: baseSalary ? Number(baseSalary) : undefined,
+          initialLeaveDays: initialLeaveDays ? Number(initialLeaveDays) : undefined,
+          employmentStatus,
         });
         setTempPassword(created.tempPassword ?? null);
         setIssuedId(created.employeeId);
@@ -158,6 +168,50 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
               onChange={(e) => setHireDate(e.target.value)}
               required
             />
+          </label>
+        )}
+        {mode === "create" && (
+          <label>
+            주소 (선택)
+            <input value={address} onChange={(e) => setAddress(e.target.value)} />
+          </label>
+        )}
+        {mode === "create" && (
+          <label>
+            급여 (선택, 원)
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={baseSalary}
+              onChange={(e) => setBaseSalary(e.target.value)}
+              placeholder="미입력 시 급여 이력을 만들지 않음"
+            />
+          </label>
+        )}
+        {mode === "create" && (
+          <label>
+            연차일수 (선택)
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              value={initialLeaveDays}
+              onChange={(e) => setInitialLeaveDays(e.target.value)}
+              placeholder="미입력 시 연차 이력을 만들지 않음"
+            />
+          </label>
+        )}
+        {mode === "create" && (
+          <label>
+            재직상태
+            <select
+              value={employmentStatus}
+              onChange={(e) => setEmploymentStatus(e.target.value as "ACTIVE" | "LEAVE")}
+            >
+              <option value="ACTIVE">재직</option>
+              <option value="LEAVE">휴직</option>
+            </select>
           </label>
         )}
         <label>

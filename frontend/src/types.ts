@@ -37,6 +37,7 @@ export type Employee = {
   statusChangedAt: string;
   mobilePhone: string;
   extensionNumber: string | null;
+  address: string | null;
   mustChangePassword: boolean;
   roleId: number;
   createdAt: string;

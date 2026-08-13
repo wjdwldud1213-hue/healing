@@ -7,6 +7,10 @@ import { jobGradesRoute, jobTitlesRoute } from "./routes/reference";
 import { rolesRoute } from "./routes/roles";
 import { permissionsRoute } from "./routes/permissions";
 import { authRoute } from "./routes/auth";
+import { leaveRoute } from "./routes/leave";
+import { runLeaveAccrualBatch } from "./lib/leaveAccrual";
+import { getDb } from "./lib/db";
+import type { Bindings } from "./types";
 
 const app = new Hono<AppEnv>();
 
@@ -38,5 +42,14 @@ app.route("/job-grades", jobGradesRoute);
 app.route("/job-titles", jobTitlesRoute);
 app.route("/roles", rolesRoute);
 app.route("/permissions", permissionsRoute);
+app.route("/leave", leaveRoute);
 
-export default app;
+export default {
+  fetch: app.fetch,
+  // 매일 KST 00:00(UTC 15:00, wrangler.toml의 crons 설정)에 Cloudflare가 자동으로 호출한다.
+  // 1년 미만 직원 월 연차 + 1월 1일 연간 연차 발생을 한 번에 처리한다(leaveAccrual.ts).
+  async scheduled(_event: ScheduledEvent, env: Bindings, _ctx: ExecutionContext) {
+    const db = getDb(env.DB);
+    await runLeaveAccrualBatch(db);
+  },
+};

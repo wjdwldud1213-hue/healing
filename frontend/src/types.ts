@@ -54,3 +54,39 @@ export type Employee = {
   /** /auth/me 응답에만 포함된다 (로그인한 사용자 본인의 권한 코드 목록) */
   permissions?: string[];
 };
+
+export type LeaveBalance = {
+  id: number;
+  employeeId: string;
+  year: number;
+  grantedDays: number;
+  usedDays: number;
+  carriedOverDays: number;
+  updatedAt: string;
+};
+
+export type LeaveGrant = {
+  id: number;
+  employeeId: string;
+  year: number;
+  days: number;
+  reason: string;
+  effectiveDate: string;
+  createdBy: string | null;
+  createdAt: string;
+};
+
+export type LeaveRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export type LeaveRequest = {
+  id: number;
+  employeeId: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+  reason: string | null;
+  status: LeaveRequestStatus;
+  requestedAt: string;
+  decidedBy: string | null;
+  decidedAt: string | null;
+};

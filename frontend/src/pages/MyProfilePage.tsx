@@ -9,6 +9,7 @@ export function MyProfilePage() {
   const { currentUser, refresh } = useAuth();
   const [mobilePhone, setMobilePhone] = useState(currentUser?.mobilePhone ?? "");
   const [extensionNumber, setExtensionNumber] = useState(currentUser?.extensionNumber ?? "");
+  const [address, setAddress] = useState(currentUser?.address ?? "");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,6 +23,7 @@ export function MyProfilePage() {
       await api.patch(`/employees/${currentUser!.employeeId}`, {
         mobilePhone,
         extensionNumber: extensionNumber || null,
+        address: address || null,
       });
       await refresh();
       setMessage("저장되었습니다.");
@@ -53,7 +55,8 @@ export function MyProfilePage() {
           <b>역할</b> {currentUser.role.name}
         </p>
         <p className="hint">
-          이름/부서/직급 등은 관리자만 변경할 수 있습니다. 아래 연락처만 직접 수정할 수 있습니다.
+          이름/부서/직급 등은 관리자만 변경할 수 있습니다. 아래 연락처/주소만 직접 수정할 수
+          있습니다.
         </p>
         <form onSubmit={handleSubmit} className="stacked-form">
           <label>
@@ -66,6 +69,10 @@ export function MyProfilePage() {
               value={extensionNumber ?? ""}
               onChange={(e) => setExtensionNumber(e.target.value)}
             />
+          </label>
+          <label>
+            주소
+            <input value={address ?? ""} onChange={(e) => setAddress(e.target.value)} />
           </label>
           {message && <p className="notice">{message}</p>}
           {error && <p className="error">{error}</p>}

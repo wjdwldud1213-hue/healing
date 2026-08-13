@@ -8,3 +8,7 @@ binding = "DB"
 database_name = "groupware-db"
 database_id = "7ab55077-6c43-4c7e-b86d-001b1e20f54d"
 migrations_dir = "drizzle"
+
+# 매일 UTC 15:00(KST 00:00)에 연차 자동발생 배치(scheduled 핸들러)를 실행한다.
+[triggers]
+crons = ["0 15 * * *"]

@@ -184,6 +184,50 @@ export const employeeLeaveBalances = sqliteTable(
   ],
 );
 
+// ── 연차 발생 이력 ────────────────────────────────────
+// employee_leave_balances는 연도별 "현재 집계"만 담고, 언제/왜 발생했는지의 감사 이력은
+// 남지 않는다. employee_compensations(급여 이력)와 동일한 append-only 패턴으로
+// 발생/조정 이벤트마다 한 행씩 쌓는다.
+export const leaveGrants = sqliteTable("leave_grants", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  employeeId: text("employee_id")
+    .notNull()
+    .references(() => employees.employeeId),
+  year: integer("year").notNull(),
+  days: real("days").notNull(), // 이 이벤트로 부여된 일수(양수). 차감은 별도 사유의 음수 행으로 남긴다.
+  reason: text("reason").notNull(), // 예: "입사 시 부여", "연차 자동발생", "관리자 조정"
+  effectiveDate: text("effective_date").notNull(),
+  createdBy: text("created_by"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ── 연차 신청 ────────────────────────────────────────
+// status/decidedBy/decidedAt은 향후 결재(승인/반려) 기능이 그대로 이어받을 자리다.
+// 지금은 결재 기능이 없어 항상 PENDING으로 생성되고 아무도 바꾸지 않는다.
+export const leaveRequests = sqliteTable(
+  "leave_requests",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    employeeId: text("employee_id")
+      .notNull()
+      .references(() => employees.employeeId),
+    startDate: text("start_date").notNull(),
+    endDate: text("end_date").notNull(),
+    days: real("days").notNull(),
+    reason: text("reason"),
+    status: text("status", { enum: ["PENDING", "APPROVED", "REJECTED"] })
+      .notNull()
+      .default("PENDING"),
+    requestedAt: text("requested_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    decidedBy: text("decided_by"),
+    decidedAt: text("decided_at"),
+  },
+  (t) => [
+    check("leave_requests_days_check", sql`${t.days} > 0`),
+    check("leave_requests_status_check", sql`${t.status} IN ('PENDING', 'APPROVED', 'REJECTED')`),
+  ],
+);
+
 // ── 로그인 세션 / 비밀번호 재설정 ───────────────────────
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
@@ -255,6 +299,8 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
   assignmentHistory: many(employeeAssignmentHistory),
   compensations: many(employeeCompensations),
   leaveBalances: many(employeeLeaveBalances),
+  leaveGrants: many(leaveGrants),
+  leaveRequests: many(leaveRequests),
   sessions: many(sessions),
 }));
 
@@ -290,6 +336,20 @@ export const employeeCompensationsRelations = relations(employeeCompensations, (
 export const employeeLeaveBalancesRelations = relations(employeeLeaveBalances, ({ one }) => ({
   employee: one(employees, {
     fields: [employeeLeaveBalances.employeeId],
+    references: [employees.employeeId],
+  }),
+}));
+
+export const leaveGrantsRelations = relations(leaveGrants, ({ one }) => ({
+  employee: one(employees, {
+    fields: [leaveGrants.employeeId],
+    references: [employees.employeeId],
+  }),
+}));
+
+export const leaveRequestsRelations = relations(leaveRequests, ({ one }) => ({
+  employee: one(employees, {
+    fields: [leaveRequests.employeeId],
     references: [employees.employeeId],
   }),
 }));

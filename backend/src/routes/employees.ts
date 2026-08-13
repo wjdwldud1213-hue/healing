@@ -10,6 +10,7 @@ import {
   employeeCompensations,
   employeeLeaveBalances,
   employees,
+  leaveGrants,
   jobGrades,
   jobTitles,
   roles,
@@ -211,6 +212,16 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
         carriedOverDays: 0,
       }),
     );
+    extraStatements.push(
+      db.insert(leaveGrants).values({
+        employeeId,
+        year: Number(hireDate.slice(0, 4)),
+        days: initialLeaveDays,
+        reason: "입사 시 부여",
+        effectiveDate: hireDate,
+        createdBy: actorId,
+      }),
+    );
   }
 
   await db.batch([...insertStatements, ...extraStatements]);
@@ -223,7 +234,7 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
   return c.json({ ...created, passwordHash: undefined, tempPassword }, 201);
 });
 
-const SELF_EDIT_FIELDS = new Set(["mobilePhone", "extensionNumber"]);
+const SELF_EDIT_FIELDS = new Set(["mobilePhone", "extensionNumber", "address"]);
 
 employeesRoute.patch("/:id", async (c) => {
   const employeeId = c.req.param("id");
@@ -248,7 +259,7 @@ employeesRoute.patch("/:id", async (c) => {
   if (isSelf && !canWriteAll) {
     const attemptedOther = Object.keys(body).some((key) => !SELF_EDIT_FIELDS.has(key));
     if (attemptedOther) {
-      return c.json({ error: "본인 정보는 휴대폰번호/내선번호만 수정할 수 있습니다." }, 403);
+      return c.json({ error: "본인 정보는 휴대폰번호/내선번호/주소만 수정할 수 있습니다." }, 403);
     }
   }
 

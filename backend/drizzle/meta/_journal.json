@@ -29,6 +29,20 @@
       "when": 1786614317210,
       "tag": "0003_rapid_jackpot",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1786628949201,
+      "tag": "0004_flaky_warstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786629337259,
+      "tag": "0005_faulty_carlie_cooper",
+      "breakpoints": true
     }
   ]
 }

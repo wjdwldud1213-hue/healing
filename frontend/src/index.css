@@ -721,6 +721,71 @@ button[type="submit"] {
   margin-top: 16px;
 }
 
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.calendar-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.calendar-table th {
+  padding: 6px;
+  text-align: center;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.calendar-cell {
+  height: 84px;
+  vertical-align: top;
+  padding: 6px;
+  border: 1px solid var(--border-soft);
+  cursor: pointer;
+}
+
+.calendar-cell.empty {
+  cursor: default;
+  background: var(--bg-muted);
+}
+
+.calendar-cell.today {
+  background: var(--notice-bg);
+}
+
+.calendar-cell.has-record {
+  border-color: var(--accent-rust);
+}
+
+.calendar-day-num {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.calendar-badge {
+  display: block;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-top: 2px;
+  color: white;
+  width: fit-content;
+}
+
+.calendar-badge.approved {
+  background: var(--accent-rust);
+}
+
+.calendar-badge.pending {
+  background: var(--accent-amber);
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;

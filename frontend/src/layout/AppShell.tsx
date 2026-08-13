@@ -5,6 +5,7 @@ import { filterMenuByPermissions, findMenuItemByPath } from "./menuData";
 import type { MenuGroup } from "./menuData";
 
 const MOBILE_BREAKPOINT = 767;
+const PIN_STORAGE_KEY = "gw:sidebarPinned";
 
 function GroupIcon({ pathFragment }: { pathFragment: string }) {
   return (
@@ -40,6 +41,33 @@ function ChevronIcon({ className }: { className?: string }) {
   );
 }
 
+function PinIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 17v5" />
+      <path d="M9 3h6l-1 6 3 3v2H7v-2l3-3-1-6z" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= MOBILE_BREAKPOINT);
   useEffect(() => {
@@ -66,9 +94,11 @@ export function AppShell() {
 
   // openGroupId: 어떤 그룹이 "논리적으로" 펼쳐져 있는지 (모바일에서 패널을 닫아도 유지됨)
   // panelVisible: 서브메뉴 패널이 실제로 화면에 보이는지 (모바일 오버레이 표시 여부)
+  // pinned: 고정 모드. 켜져 있으면 본문(main-content)을 클릭해도 패널이 자동으로 닫히지 않는다.
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const [panelVisible, setPanelVisible] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [pinned, setPinned] = useState(() => localStorage.getItem(PIN_STORAGE_KEY) === "1");
 
   const shellRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -79,6 +109,10 @@ export function AppShell() {
   );
 
   const activeMatch = findMenuItemByPath(location.pathname);
+
+  useEffect(() => {
+    localStorage.setItem(PIN_STORAGE_KEY, pinned ? "1" : "0");
+  }, [pinned]);
 
   // 라우트가 바뀔 때마다(직접 URL 진입/새로고침 포함) 해당 그룹을 논리적으로 펼친다.
   // 데스크톱은 패널을 계속 보여주고, 모바일은 오버레이를 자동으로 띄우지 않고 상태만 기억한다.
@@ -91,20 +125,20 @@ export function AppShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
-  // 패널/프로필 바깥을 클릭하면 닫는다
+  // 패널/프로필 바깥을 클릭하면 닫는다 (단, 고정 모드에서는 패널을 닫지 않는다)
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
         setProfileOpen(false);
       }
-      if (panelVisible && shellRef.current && !shellRef.current.contains(e.target as Node)) {
+      if (!pinned && panelVisible && shellRef.current && !shellRef.current.contains(e.target as Node)) {
         setOpenGroupId(null);
         setPanelVisible(false);
       }
     }
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
-  }, [panelVisible]);
+  }, [panelVisible, pinned]);
 
   function toggleGroup(id: string) {
     if (openGroupId === id) {
@@ -116,14 +150,18 @@ export function AppShell() {
     }
   }
 
+  function closePanel() {
+    setOpenGroupId(null);
+    setPanelVisible(false);
+  }
+
   function handleChildClick() {
     if (isMobile) setPanelVisible(false);
   }
 
   function handleHamburgerClick() {
     if (panelVisible) {
-      setOpenGroupId(null);
-      setPanelVisible(false);
+      closePanel();
       return;
     }
     if (!openGroupId && visibleMenu[0]) setOpenGroupId(visibleMenu[0].id);
@@ -150,7 +188,9 @@ export function AppShell() {
               <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <span className="logo-text">Healing Food</span>
+          <Link to="/" className="logo-text">
+            Healing Food
+          </Link>
           {breadcrumbLabel && (
             <p className="breadcrumb">
               {activeMatch ? (
@@ -204,10 +244,7 @@ export function AppShell() {
       <div className="app-body">
         <div
           className={`sidebar-overlay${panelVisible && isMobile ? " show" : ""}`}
-          onClick={() => {
-            setOpenGroupId(null);
-            setPanelVisible(false);
-          }}
+          onClick={closePanel}
         />
 
         <aside className="sidebar-wrapper" ref={shellRef}>
@@ -221,7 +258,6 @@ export function AppShell() {
                 onClick={() => toggleGroup(group.id)}
               >
                 <GroupIcon pathFragment={group.icon} />
-                <span className="rail-label">{group.label}</span>
                 <span className="rail-tooltip">{group.label}</span>
               </button>
             ))}
@@ -229,6 +265,28 @@ export function AppShell() {
 
           <div className={`submenu-panel${panelVisible ? " panel-open" : ""}`}>
             <div className="submenu-panel-inner">
+              <div className="submenu-panel-head">
+                <span className="submenu-panel-head-label">메뉴</span>
+                <div className="submenu-panel-head-actions">
+                  <button
+                    type="button"
+                    className={`panel-action-btn${pinned ? " active" : ""}`}
+                    aria-pressed={pinned}
+                    aria-label={pinned ? "패널 고정 해제" : "패널 고정"}
+                    onClick={() => setPinned((v) => !v)}
+                  >
+                    <PinIcon filled={pinned} />
+                  </button>
+                  <button
+                    type="button"
+                    className="panel-action-btn"
+                    aria-label="패널 숨기기"
+                    onClick={closePanel}
+                  >
+                    <CloseIcon />
+                  </button>
+                </div>
+              </div>
               {visibleMenu.map((group) => (
                 <MenuGroupAccordion
                   key={group.id}

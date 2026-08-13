@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>힐링푸드 · 로그인</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand-dark:#1B3B2F;
+    --brand-dark-2:#26483A;
+    --brand-dark-3:#0F2019;
+    --cream:#F6F4EE;
+    --card-white:#FFFFFF;
+    --text-main:#1A1A18;
+    --text-muted:#7A776E;
+    --text-sub:#B9C7BE;
+    --accent-rust:#B65D34;
+    --accent-rust-hover:#A14F2A;
+    --accent-amber:#E7A33D;
+    --border-soft:#E7E3D9;
+    --notice-bg:#F1EFE6;
+    --focus-ring: rgba(182,93,52,0.28);
+  }
+
+  *{box-sizing:border-box;}
+
+  html,body{
+    margin:0;
+    padding:0;
+    height:100%;
+    background:var(--cream);
+    background-image:
+      radial-gradient(circle at 12% 18%, rgba(27,59,47,0.05), transparent 40%),
+      radial-gradient(circle at 88% 82%, rgba(182,93,52,0.06), transparent 45%);
+    font-family:'Noto Sans KR', sans-serif;
+    color:var(--text-main);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  body{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding:32px 20px;
+  }
+
+  .auth-shell{
+    width:100%;
+    max-width:960px;
+    display:grid;
+    grid-template-columns: 1.05fr 1.2fr;
+    background:var(--card-white);
+    border-radius:22px;
+    overflow:hidden;
+    box-shadow:0 30px 70px -30px rgba(15,32,25,0.35), 0 2px 10px rgba(15,32,25,0.06);
+    border:1px solid var(--border-soft);
+  }
+
+  /* ---------- LEFT: BRAND PANEL ---------- */
+  .brand-panel{
+    position:relative;
+    background:
+      linear-gradient(155deg, var(--brand-dark) 0%, var(--brand-dark-2) 55%, var(--brand-dark-3) 100%);
+    color:#fff;
+    padding:44px 40px 36px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    overflow:hidden;
+  }
+
+  .brand-panel::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background-image: repeating-linear-gradient(135deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 26px);
+    pointer-events:none;
+  }
+
+  .brand-top{ position:relative; z-index:2; }
+
+  .logo-row{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    margin-bottom:6px;
+  }
+
+  .logo-mark{
+    width:34px;
+    height:34px;
+    border-radius:9px;
+    background:var(--accent-rust);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Poppins',sans-serif;
+    font-weight:800;
+    font-size:16px;
+    color:#fff;
+    flex-shrink:0;
+  }
+
+  .logo-text{
+    font-family:'Poppins', sans-serif;
+    font-weight:800;
+    font-size:21px;
+    letter-spacing:-0.02em;
+    color:#fff;
+    line-height:1;
+  }
+
+  .company-kr{
+    font-size:12px;
+    color:var(--text-sub);
+    margin:6px 0 0 45px;
+    letter-spacing:0.01em;
+  }
+
+  .eyebrow{
+    margin-top:46px;
+    font-family:'Poppins',sans-serif;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:0.22em;
+    color:var(--accent-amber);
+    text-transform:uppercase;
+  }
+
+  .headline{
+    margin:12px 0 0;
+    font-size:27px;
+    font-weight:700;
+    line-height:1.42;
+    color:#fff;
+    letter-spacing:-0.01em;
+  }
+
+  .sub-copy{
+    margin-top:14px;
+    font-size:13.5px;
+    line-height:1.65;
+    color:var(--text-sub);
+    max-width:300px;
+  }
+
+  .route-graphic{
+    position:relative;
+    z-index:2;
+    margin-top:30px;
+  }
+
+  .route-graphic svg{ width:100%; height:auto; display:block; }
+
+  .brand-bottom{
+    position:relative;
+    z-index:2;
+    padding-top:24px;
+    border-top:1px solid rgba(255,255,255,0.12);
+  }
+
+  .brand-bottom p{
+    margin:0;
+    font-size:11.5px;
+    color:rgba(255,255,255,0.42);
+    letter-spacing:0.01em;
+  }
+
+  /* ---------- RIGHT: FORM PANEL ---------- */
+  .form-panel{
+    padding:48px 46px 34px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+
+  .form-header h1{
+    margin:0;
+    font-size:24px;
+    font-weight:700;
+    color:var(--text-main);
+    letter-spacing:-0.01em;
+  }
+
+  .form-header p{
+    margin:8px 0 30px;
+    font-size:13.5px;
+    color:var(--text-muted);
+  }
+
+  .field{ margin-bottom:18px; }
+
+  .field label{
+    display:block;
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--text-main);
+    margin-bottom:7px;
+    letter-spacing:0.01em;
+  }
+
+  .input-wrap{ position:relative; }
+
+  .input-wrap input{
+    width:100%;
+    padding:12.5px 14px;
+    font-size:14px;
+    font-family:'Noto Sans KR', sans-serif;
+    color:var(--text-main);
+    background:var(--notice-bg);
+    border:1.5px solid transparent;
+    border-radius:10px;
+    outline:none;
+    transition:border-color .15s ease, background .15s ease, box-shadow .15s ease;
+  }
+
+  .input-wrap input::placeholder{ color:#9C9A8F; }
+
+  .input-wrap input:focus{
+    background:#fff;
+    border-color:var(--accent-rust);
+    box-shadow:0 0 0 4px var(--focus-ring);
+  }
+
+  .toggle-visibility{
+    position:absolute;
+    right:12px;
+    top:50%;
+    transform:translateY(-50%);
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:4px;
+    color:#9C9A8F;
+    display:flex;
+    align-items:center;
+    border-radius:6px;
+  }
+  .toggle-visibility:hover{ color:var(--text-muted); }
+  .toggle-visibility:focus-visible{ outline:2px solid var(--accent-rust); outline-offset:2px; }
+
+  .row-between{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin:2px 0 24px;
+  }
+
+  .remember{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+    color:var(--text-muted);
+    cursor:pointer;
+    user-select:none;
+  }
+
+  .remember input[type="checkbox"]{
+    appearance:none;
+    -webkit-appearance:none;
+    width:17px;
+    height:17px;
+    border-radius:5px;
+    border:1.5px solid #CFCBBD;
+    background:#fff;
+    cursor:pointer;
+    position:relative;
+    flex-shrink:0;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .remember input[type="checkbox"]:checked{
+    background:var(--accent-rust);
+    border-color:var(--accent-rust);
+  }
+  .remember input[type="checkbox"]:checked::after{
+    content:"";
+    position:absolute;
+    left:5px; top:1.5px;
+    width:4px; height:8px;
+    border:solid #fff;
+    border-width:0 2px 2px 0;
+    transform:rotate(45deg);
+  }
+  .remember input[type="checkbox"]:focus-visible{
+    outline:2px solid var(--accent-rust);
+    outline-offset:2px;
+  }
+
+  .link-muted{
+    font-size:12.5px;
+    color:var(--text-muted);
+    text-decoration:none;
+    border-bottom:1px solid transparent;
+    transition:color .15s ease, border-color .15s ease;
+  }
+  .link-muted:hover{ color:var(--accent-rust); border-color:var(--accent-rust); }
+
+  .btn-login{
+    width:100%;
+    padding:13.5px 0;
+    font-family:'Noto Sans KR', sans-serif;
+    font-size:15px;
+    font-weight:700;
+    color:#fff;
+    background:var(--accent-rust);
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+    letter-spacing:0.01em;
+    transition:background .15s ease, transform .1s ease;
+  }
+  .btn-login:hover{ background:var(--accent-rust-hover); }
+  .btn-login:active{ transform:translateY(1px); }
+  .btn-login:focus-visible{ outline:2px solid var(--brand-dark); outline-offset:3px; }
+
+  .divider{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin:26px 0 16px;
+  }
+  .divider::before, .divider::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:var(--border-soft);
+  }
+  .divider span{
+    font-size:11.5px;
+    font-weight:700;
+    letter-spacing:0.14em;
+    color:var(--text-muted);
+    text-transform:uppercase;
+  }
+
+  .notice-box{
+    background:var(--notice-bg);
+    border-radius:10px;
+    padding:13px 15px;
+    display:flex;
+    gap:9px;
+    align-items:flex-start;
+  }
+
+  .notice-dot{
+    width:6px; height:6px;
+    border-radius:50%;
+    background:var(--accent-rust);
+    margin-top:6px;
+    flex-shrink:0;
+  }
+
+  .notice-box p{
+    margin:0;
+    font-size:12.5px;
+    line-height:1.6;
+    color:#4E4C44;
+  }
+
+  .notice-box strong{ color:var(--text-main); }
+
+  .reset-row{
+    text-align:center;
+    margin-top:18px;
+  }
+
+  .reset-row a{
+    font-size:12.5px;
+    color:var(--text-muted);
+    text-decoration:none;
+    border-bottom:1px solid var(--border-soft);
+    padding-bottom:1px;
+    transition:color .15s ease, border-color .15s ease;
+  }
+  .reset-row a:hover{ color:var(--accent-rust); border-color:var(--accent-rust); }
+
+  .system-footnote{
+    text-align:center;
+    margin-top:26px;
+    font-size:11.5px;
+    color:#B4B1A6;
+  }
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width: 860px){
+    .auth-shell{ grid-template-columns:1fr; max-width:440px; }
+    .brand-panel{ padding:32px 30px 26px; }
+    .headline{ font-size:22px; }
+    .route-graphic{ display:none; }
+    .form-panel{ padding:36px 30px 28px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="auth-shell">
+
+    <!-- LEFT: BRAND PANEL -->
+    <div class="brand-panel">
+      <div class="brand-top">
+        <div class="logo-row">
+          <div class="logo-mark">H</div>
+          <div class="logo-text">Healing Food</div>
+        </div>
+        <p class="company-kr">농업회사법인 (주) 힐링푸드</p>
+
+        <div class="eyebrow">Employee Portal</div>
+        <h2 class="headline">오늘도 신선하게,<br>힐링푸드의 하루가<br>시작됩니다.</h2>
+        <p class="sub-copy">주문 접수부터 배송까지, 사내 업무를 하나의 시스템에서 확인하세요.</p>
+
+        <div class="route-graphic" aria-hidden="true">
+          <svg viewBox="0 0 300 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 70 C 70 70, 70 20, 130 20 S 190 70, 250 70 S 280 40, 292 40"
+                  stroke="rgba(255,255,255,0.22)" stroke-width="1.5" stroke-dasharray="3 6" fill="none"/>
+            <circle cx="10" cy="70" r="4" fill="#E7A33D"/>
+            <circle cx="130" cy="20" r="3.5" fill="rgba(255,255,255,0.55)"/>
+            <circle cx="250" cy="70" r="3.5" fill="rgba(255,255,255,0.55)"/>
+            <circle cx="292" cy="40" r="4" fill="#B65D34"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="brand-bottom">
+        <p>© 2026 Healing Food Co., Ltd.</p>
+      </div>
+    </div>
+
+    <!-- RIGHT: FORM PANEL -->
+    <div class="form-panel">
+      <div class="form-header">
+        <h1>로그인</h1>
+        <p>사내 계정으로 로그인해 주세요.</p>
+      </div>
+
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <label for="employeeId">아이디(사번)</label>
+          <div class="input-wrap">
+            <input type="text" id="employeeId" name="employeeId" placeholder="사번 또는 아이디를 입력하세요" autocomplete="username" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="password">비밀번호</label>
+          <div class="input-wrap">
+            <input type="password" id="password" name="password" placeholder="비밀번호를 입력하세요" autocomplete="current-password" required>
+            <button type="button" class="toggle-visibility" id="togglePw" aria-label="비밀번호 표시">
+              <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="row-between">
+          <label class="remember">
+            <input type="checkbox" id="rememberMe" name="rememberMe">
+            로그인 상태 유지
+          </label>
+          <a href="#" class="link-muted">비밀번호를 잊으셨나요?</a>
+        </div>
+
+        <button type="submit" class="btn-login">로그인</button>
+      </form>
+
+      <div class="divider"><span>사내 공지</span></div>
+
+      <div class="notice-box">
+        <span class="notice-dot"></span>
+        <p>오늘 <strong>15시</strong> 이후 접수 건은 <strong>익일 새벽 출고</strong>로 자동 전환됩니다. 담당 부서는 참고해 주세요.</p>
+      </div>
+
+      <div class="reset-row">
+        <a href="#">비밀번호 재설정</a>
+      </div>
+
+      <p class="system-footnote">힐링푸드 직원 전용 시스템입니다.</p>
+    </div>
+
+  </div>
+
+<script>
+  const toggleBtn = document.getElementById('togglePw');
+  const pwInput = document.getElementById('password');
+  const eyeIcon = document.getElementById('eyeIcon');
+
+  toggleBtn.addEventListener('click', () => {
+    const isHidden = pwInput.type === 'password';
+    pwInput.type = isHidden ? 'text' : 'password';
+    toggleBtn.setAttribute('aria-label', isHidden ? '비밀번호 숨기기' : '비밀번호 표시');
+    eyeIcon.innerHTML = isHidden
+      ? '<path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>'
+      : '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"></path><circle cx="12" cy="12" r="3"></circle>';
+  });
+
+  document.getElementById('loginForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    // 실제 인증 로직은 백엔드 연동 시 이 부분에 연결합니다.
+  });
+</script>
+
+</body>
+</html>

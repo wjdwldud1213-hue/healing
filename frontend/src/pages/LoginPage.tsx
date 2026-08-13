@@ -3,44 +3,40 @@ import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
-function EyeIcon({ off }: { off: boolean }) {
-  if (off) {
+function EyeIcon({ revealed }: { revealed: boolean }) {
+  if (revealed) {
     return (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path
-          d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 4.24A9.7 9.7 0 0 1 12 4c5 0 9 4 10 8-.4 1.5-1.2 2.9-2.3 4.1M6.1 6.1C3.9 7.5 2.3 9.6 2 12c.6 2.2 2 4.1 3.9 5.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+        <line x1="1" y1="1" x2="23" y2="23" />
       </svg>
     );
   }
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path
-        d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8-10-8-10-8z"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
       <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
 
-function BrandPath() {
+function RouteGraphic() {
   return (
-    <svg className="brand-path" viewBox="0 0 340 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M15 65 Q 90 15, 165 48 T 325 25"
-        stroke="#4b6b5c"
-        strokeWidth="1.5"
-        strokeDasharray="4 6"
-      />
-      <circle cx="15" cy="65" r="5" fill="#B65D34" />
-      <circle cx="130" cy="35" r="4" fill="#7f9186" />
-      <circle cx="240" cy="52" r="4" fill="#7f9186" />
-      <circle cx="325" cy="25" r="5" fill="#B65D34" />
-    </svg>
+    <div className="login-route-graphic" aria-hidden="true">
+      <svg viewBox="0 0 300 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path
+          d="M10 70 C 70 70, 70 20, 130 20 S 190 70, 250 70 S 280 40, 292 40"
+          stroke="rgba(255,255,255,0.22)"
+          strokeWidth="1.5"
+          strokeDasharray="3 6"
+          fill="none"
+        />
+        <circle cx="10" cy="70" r="4" fill="#E7A33D" />
+        <circle cx="130" cy="20" r="3.5" fill="rgba(255,255,255,0.55)" />
+        <circle cx="250" cy="70" r="3.5" fill="rgba(255,255,255,0.55)" />
+        <circle cx="292" cy="40" r="4" fill="#B65D34" />
+      </svg>
+    </div>
   );
 }
 
@@ -69,73 +65,87 @@ export function LoginPage() {
   }
 
   return (
-    <div className="login-split">
-      <aside className="login-brand">
-        <div className="login-brand-top">
-          <div className="brand-logo-box">H</div>
-          <div>
-            <div className="brand-logo-text">Healing Food</div>
-            <div className="brand-sub-text">최상의 제품을 정직하게 공급하는 기업 (주) 힐링푸드</div>
+    <div className="login-shell">
+      <div className="login-card">
+        {/* LEFT: BRAND PANEL */}
+        <div className="login-brand">
+          <div className="login-brand-top">
+            <div className="login-logo-row">
+              <div className="login-logo-mark">H</div>
+              <div className="login-logo-text">Healing Food</div>
+            </div>
+            <p className="login-company-kr">최상의 제품을 정직하게 공급하는 기업 (주) 힐링푸드</p>
+
+            <div className="login-eyebrow">Employee Portal</div>
+            <h2 className="login-headline">
+              오늘도 신선하게,
+              <br />
+              힐링푸드의 하루가
+              <br />
+              시작됩니다.
+            </h2>
+            <p className="login-sub-copy">
+              주문 접수부터 배송까지, 사내 업무를 하나의 시스템에서 확인하세요.
+            </p>
+
+            <RouteGraphic />
+          </div>
+
+          <div className="login-brand-bottom">
+            <p>&copy; 2026 Healing Food Co., Ltd.</p>
           </div>
         </div>
 
-        <div className="login-brand-mid">
-          <p className="brand-eyebrow">EMPLOYEE PORTAL</p>
-          <h1 className="brand-headline">
-            오늘도 신선하게,
-            <br />
-            힐링푸드의 하루가
-            <br />
-            시작됩니다.
-          </h1>
-          <p className="brand-desc">
-            주문 접수부터 배송까지, 사내 업무를 하나의 시스템에서 확인하세요.
-          </p>
-          <BrandPath />
-        </div>
+        {/* RIGHT: FORM PANEL */}
+        <div className="login-form-panel">
+          <div className="login-form-header">
+            <h1>로그인</h1>
+            <p>사내 계정으로 로그인해 주세요.</p>
+          </div>
 
-        <p className="brand-footer">&copy; 2026 Healing Food Co., Ltd.</p>
-      </aside>
+          <form onSubmit={handleSubmit} noValidate>
+            <div className="login-field">
+              <label htmlFor="employeeId">아이디(사번)</label>
+              <div className="login-input-wrap">
+                <input
+                  type="text"
+                  id="employeeId"
+                  name="employeeId"
+                  value={employeeId}
+                  onChange={(e) => setEmployeeId(e.target.value.toUpperCase())}
+                  placeholder="사번 또는 아이디를 입력하세요"
+                  autoComplete="username"
+                  required
+                />
+              </div>
+            </div>
 
-      <section className="login-form-panel">
-        <div className="login-form-inner">
-          <h2 className="login-title">로그인</h2>
-          <p className="login-subtitle">사내 계정으로 로그인해 주세요.</p>
-
-          <form onSubmit={handleSubmit} className="login-form">
-            <label className="login-field">
-              <span>아이디(사번)</span>
-              <input
-                value={employeeId}
-                onChange={(e) => setEmployeeId(e.target.value.toUpperCase())}
-                placeholder="사번 또는 아이디를 입력하세요"
-                required
-              />
-            </label>
-
-            <label className="login-field">
-              <span>비밀번호</span>
-              <div className="password-input-wrap">
+            <div className="login-field">
+              <label htmlFor="password">비밀번호</label>
+              <div className="login-input-wrap">
                 <input
                   type={showPassword ? "text" : "password"}
+                  id="password"
+                  name="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="비밀번호를 입력하세요"
+                  autoComplete="current-password"
                   required
                 />
                 <button
                   type="button"
-                  className="password-toggle"
+                  className="login-toggle-visibility"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 표시"}
                 >
-                  <EyeIcon off={showPassword} />
+                  <EyeIcon revealed={showPassword} />
                 </button>
               </div>
-            </label>
+            </div>
 
-            <div className="login-options-row">
-              <label className="remember-me">
+            <div className="login-row-between">
+              <label className="login-remember">
                 <input
                   type="checkbox"
                   checked={rememberMe}
@@ -143,14 +153,14 @@ export function LoginPage() {
                 />
                 로그인 상태 유지
               </label>
-              <Link to="/forgot-password" className="forgot-link">
+              <Link to="/forgot-password" className="login-link-muted">
                 비밀번호를 잊으셨나요?
               </Link>
             </div>
 
             {error && <p className="error">{error}</p>}
 
-            <button type="submit" className="login-submit" disabled={loading}>
+            <button type="submit" className="login-btn" disabled={loading}>
               로그인
             </button>
           </form>
@@ -160,18 +170,20 @@ export function LoginPage() {
           </div>
 
           <div className="login-notice">
+            <span className="login-notice-dot" />
             <p>
-              오늘 15시 이후 접수 건은 <b>익일 새벽 출고</b>로 자동 전환됩니다. 담당 부서는
-              참고해 주세요.
+              오늘 <strong>15시</strong> 이후 접수 건은 <strong>익일 새벽 출고</strong>로 자동
+              전환됩니다. 담당 부서는 참고해 주세요.
             </p>
           </div>
 
-          <Link to="/forgot-password" className="login-reset-link">
-            비밀번호 재설정
-          </Link>
+          <div className="login-reset-row">
+            <Link to="/forgot-password">비밀번호 재설정</Link>
+          </div>
+
           <p className="login-footnote">힐링푸드 직원 전용 시스템입니다.</p>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

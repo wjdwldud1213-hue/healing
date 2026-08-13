@@ -24,12 +24,14 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
   const [mobilePhone, setMobilePhone] = useState(employee?.mobilePhone ?? "");
   const [extensionNumber, setExtensionNumber] = useState(employee?.extensionNumber ?? "");
   const [roleId, setRoleId] = useState(employee?.roleId ?? 0);
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState(employee?.address ?? "");
   const [baseSalary, setBaseSalary] = useState("");
   const [initialLeaveDays, setInitialLeaveDays] = useState("");
   const [employmentStatus, setEmploymentStatus] = useState<Extract<EmploymentStatus, "ACTIVE" | "LEAVE">>(
-    "ACTIVE",
+    employee?.employmentStatus === "LEAVE" ? "LEAVE" : "ACTIVE",
   );
+  // 이미 퇴사 처리된 직원은 이 폼에서 재직상태를 되돌릴 수 없다 — 퇴사는 별도 "퇴사처리" 버튼으로만 처리한다.
+  const canEditStatus = mode === "create" || employee?.employmentStatus !== "RESIGNED";
 
   useEffect(() => {
     Promise.all([
@@ -68,9 +70,12 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
           name,
           departmentId,
           jobGradeId,
+          hireDate,
+          address: address || null,
           mobilePhone,
           extensionNumber: extensionNumber || null,
           roleId,
+          ...(canEditStatus ? { employmentStatus } : {}),
         });
         onDone(updated);
       }
@@ -139,23 +144,19 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
             ))}
           </select>
         </label>
-        {mode === "create" && (
-          <label>
-            입사일
-            <input
-              type="date"
-              value={hireDate}
-              onChange={(e) => setHireDate(e.target.value)}
-              required
-            />
-          </label>
-        )}
-        {mode === "create" && (
-          <label>
-            주소
-            <input value={address} onChange={(e) => setAddress(e.target.value)} />
-          </label>
-        )}
+        <label>
+          입사일
+          <input
+            type="date"
+            value={hireDate}
+            onChange={(e) => setHireDate(e.target.value)}
+            required
+          />
+        </label>
+        <label>
+          주소
+          <input value={address} onChange={(e) => setAddress(e.target.value)} />
+        </label>
         {mode === "create" && (
           <label>
             급여 (원)
@@ -182,7 +183,7 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
             />
           </label>
         )}
-        {mode === "create" && (
+        {canEditStatus && (
           <label>
             재직상태
             <select

@@ -252,11 +252,21 @@ employeesRoute.patch("/:id", async (c) => {
     }
   }
 
+  if (body.employmentStatus != null && body.employmentStatus !== "ACTIVE" && body.employmentStatus !== "LEAVE") {
+    return c.json({ error: "재직상태는 재직 또는 휴직만 이 화면에서 변경할 수 있습니다." }, 400);
+  }
+
   const updates: Record<string, unknown> = { updatedAt: new Date().toISOString(), updatedBy: actorId };
   if (typeof body.name === "string") updates.name = body.name.trim();
+  if (typeof body.hireDate === "string") updates.hireDate = body.hireDate.trim();
+  if ("address" in body) updates.address = body.address ?? null;
   if (typeof body.mobilePhone === "string") updates.mobilePhone = body.mobilePhone.trim();
   if ("extensionNumber" in body) updates.extensionNumber = body.extensionNumber ?? null;
   if (typeof body.roleId === "number") updates.roleId = body.roleId;
+  if (body.employmentStatus === "ACTIVE" || body.employmentStatus === "LEAVE") {
+    updates.employmentStatus = body.employmentStatus;
+    updates.statusChangedAt = new Date().toISOString();
+  }
 
   const nextDepartmentId = typeof body.departmentId === "number" ? body.departmentId : current.departmentId;
   const nextJobGradeId = typeof body.jobGradeId === "number" ? body.jobGradeId : current.jobGradeId;

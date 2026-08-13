@@ -100,7 +100,7 @@ export function LoginPage() {
                   name="employeeId"
                   value={employeeId}
                   onChange={(e) => setEmployeeId(e.target.value.toUpperCase())}
-                  placeholder="사번 또는 아이디를 입력하세요"
+                  placeholder="사번을 입력하세요"
                   autoComplete="username"
                   required
                 />

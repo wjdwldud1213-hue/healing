@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api/client";
+import { Modal } from "../components/Modal";
 import type { LeaveBalance, LeaveRequest } from "../types";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -9,9 +10,19 @@ const STATUS_LABEL: Record<string, string> = {
   REJECTED: "반려",
 };
 
+// 시작일~종료일(포함) 사이 일수를 달력일 기준으로 계산한다. 반차 등 수동 조정은 신청 폼에서 직접 고칠 수 있다.
+function calcInclusiveDays(start: string, end: string): number | null {
+  if (!start || !end) return null;
+  const s = new Date(`${start}T00:00:00Z`).getTime();
+  const e = new Date(`${end}T00:00:00Z`).getTime();
+  if (Number.isNaN(s) || Number.isNaN(e) || e < s) return null;
+  return Math.round((e - s) / 86400000) + 1;
+}
+
 export function LeaveManagementPage() {
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  const [showApplyModal, setShowApplyModal] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [days, setDays] = useState("");
@@ -26,6 +37,27 @@ export function LeaveManagementPage() {
 
   useEffect(load, []);
 
+  function handleStartDateChange(value: string) {
+    setStartDate(value);
+    const calculated = calcInclusiveDays(value, endDate);
+    if (calculated != null) setDays(String(calculated));
+  }
+
+  function handleEndDateChange(value: string) {
+    setEndDate(value);
+    const calculated = calcInclusiveDays(startDate, value);
+    if (calculated != null) setDays(String(calculated));
+  }
+
+  function closeApplyModal() {
+    setShowApplyModal(false);
+    setStartDate("");
+    setEndDate("");
+    setDays("");
+    setReason("");
+    setError(null);
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -37,10 +69,7 @@ export function LeaveManagementPage() {
         days: days ? Number(days) : undefined,
         reason: reason || undefined,
       });
-      setStartDate("");
-      setEndDate("");
-      setDays("");
-      setReason("");
+      closeApplyModal();
       load();
     } catch (err) {
       setError((err as Error).message);
@@ -49,86 +78,41 @@ export function LeaveManagementPage() {
     }
   }
 
+  const currentYear = new Date().getFullYear();
+  const currentBalance = balances.find((b) => b.year === currentYear);
+  const totalDays = currentBalance ? currentBalance.grantedDays + currentBalance.carriedOverDays : 0;
+  const usedDays = currentBalance ? currentBalance.usedDays : 0;
+  const remainingDays = totalDays - usedDays;
+
   return (
     <section>
       <h2>연차 관리</h2>
       <p className="hint">
         본인의 연차 현황과 신청 내역만 조회할 수 있습니다. 신청한 연차는 승인 대기 상태로
-        등록되며, 승인/반려 기능은 추후 제공됩니다.
+        등록되며, 관리자 승인 후 반영됩니다.
       </p>
 
       <div className="card">
-        <h3>연차 현황</h3>
-        {balances.length === 0 && <p className="hint">등록된 연차 발생 내역이 없습니다.</p>}
-        {balances.length > 0 && (
-          <table>
-            <thead>
-              <tr>
-                <th>연도</th>
-                <th>발생</th>
-                <th>이월</th>
-                <th>사용</th>
-                <th>잔여</th>
-              </tr>
-            </thead>
-            <tbody>
-              {balances.map((b) => (
-                <tr key={b.id}>
-                  <td>{b.year}</td>
-                  <td>{b.grantedDays}</td>
-                  <td>{b.carriedOverDays}</td>
-                  <td>{b.usedDays}</td>
-                  <td>{b.grantedDays + b.carriedOverDays - b.usedDays}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      <div className="card">
-        <h3>연차 신청</h3>
-        <form onSubmit={handleSubmit} className="stacked-form">
-          <label>
-            시작일
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              required
-            />
-          </label>
-          <label>
-            종료일
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              required
-            />
-          </label>
-          <label>
-            일수
-            <input
-              type="number"
-              min="0.5"
-              step="0.5"
-              value={days}
-              onChange={(e) => setDays(e.target.value)}
-              required
-            />
-          </label>
-          <label>
-            사유 (선택)
-            <input value={reason} onChange={(e) => setReason(e.target.value)} />
-          </label>
-          {error && <p className="error">{error}</p>}
-          <div className="form-actions">
-            <button type="submit" disabled={loading}>
-              신청
-            </button>
+        <div className="section-header">
+          <h3>연차 현황</h3>
+          <button type="button" className="toolbar-end" onClick={() => setShowApplyModal(true)}>
+            연차 신청
+          </button>
+        </div>
+        <div className="leave-stats">
+          <div className="leave-stat">
+            <span className="leave-stat-label">총 연차</span>
+            <span className="leave-stat-value">{totalDays}일</span>
           </div>
-        </form>
+          <div className="leave-stat">
+            <span className="leave-stat-label">사용 연차</span>
+            <span className="leave-stat-value">{usedDays}일</span>
+          </div>
+          <div className="leave-stat">
+            <span className="leave-stat-label">잔여 연차</span>
+            <span className="leave-stat-value">{remainingDays}일</span>
+          </div>
+        </div>
       </div>
 
       <div className="card">
@@ -161,6 +145,58 @@ export function LeaveManagementPage() {
           </table>
         )}
       </div>
+
+      {showApplyModal && (
+        <Modal onClose={closeApplyModal}>
+          <div className="card">
+            <h3>연차 신청</h3>
+            <form onSubmit={handleSubmit} className="stacked-form">
+              <label>
+                시작일
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                종료일
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => handleEndDateChange(e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                일수 (자동 계산, 필요 시 수정 가능)
+                <input
+                  type="number"
+                  min="0.5"
+                  step="0.5"
+                  value={days}
+                  onChange={(e) => setDays(e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                사유 (선택)
+                <input value={reason} onChange={(e) => setReason(e.target.value)} />
+              </label>
+              {error && <p className="error">{error}</p>}
+              <div className="form-actions">
+                <button type="submit" disabled={loading}>
+                  신청
+                </button>
+                <button type="button" onClick={closeApplyModal}>
+                  취소
+                </button>
+              </div>
+            </form>
+          </div>
+        </Modal>
+      )}
     </section>
   );
 }

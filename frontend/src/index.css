@@ -721,11 +721,34 @@ button[type="submit"] {
   margin-top: 16px;
 }
 
-.calendar-header {
+.calendar-header,
+.section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
+}
+
+.leave-stats {
+  display: flex;
+  gap: 24px;
+}
+
+.leave-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.leave-stat-label {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.leave-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-main);
 }
 
 .calendar-table {

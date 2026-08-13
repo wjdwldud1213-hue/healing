@@ -42,7 +42,7 @@ leaveRoute.get("/requests", async (c) => {
     .select()
     .from(leaveRequests)
     .where(eq(leaveRequests.employeeId, employeeId))
-    .orderBy(desc(leaveRequests.requestedAt));
+    .orderBy(desc(leaveRequests.startDate));
   return c.json(rows);
 });
 

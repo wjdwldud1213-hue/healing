@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>힐링푸드 · 그룹웨어</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand-dark:#1B3B2F;
+    --brand-dark-2:#26483A;
+    --brand-dark-3:#0F2019;
+    --cream:#F6F4EE;
+    --card-white:#FFFFFF;
+    --text-main:#1A1A18;
+    --text-muted:#7A776E;
+    --text-sub:#B9C7BE;
+    --accent-rust:#B65D34;
+    --accent-rust-hover:#A14F2A;
+    --accent-amber:#E7A33D;
+    --border-soft:#E7E3D9;
+    --notice-bg:#F1EFE6;
+    --focus-ring: rgba(182,93,52,0.28);
+
+    --topbar-h:64px;
+    --rail-w:72px;
+    --panel-w:224px;
+  }
+
+  *{box-sizing:border-box;}
+
+  html,body{
+    margin:0;
+    padding:0;
+    height:100%;
+    background:var(--cream);
+    font-family:'Noto Sans KR', sans-serif;
+    color:var(--text-main);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  button{ font-family:inherit; }
+  a{ font-family:inherit; }
+
+  /* ============ TOPBAR ============ */
+  .topbar{
+    position:fixed;
+    top:0; left:0; right:0;
+    height:var(--topbar-h);
+    background:var(--card-white);
+    border-bottom:1px solid var(--border-soft);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 20px 0 14px;
+    z-index:200;
+  }
+
+  .topbar-left{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    min-width:0;
+  }
+
+  .hamburger-btn{
+    display:none;
+    width:38px; height:38px;
+    align-items:center;
+    justify-content:center;
+    background:none;
+    border:none;
+    border-radius:9px;
+    color:var(--text-main);
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .hamburger-btn:hover{ background:var(--notice-bg); }
+  .hamburger-btn:focus-visible{ outline:2px solid var(--accent-rust); outline-offset:2px; }
+
+  .logo-text{
+    font-family:'Poppins', sans-serif;
+    font-weight:800;
+    font-size:16.5px;
+    letter-spacing:-0.02em;
+    color:var(--brand-dark);
+    white-space:nowrap;
+    flex-shrink:0;
+  }
+
+  .breadcrumb{
+    margin:0;
+    padding-left:16px;
+    margin-left:12px;
+    border-left:1px solid var(--border-soft);
+    font-size:12.5px;
+    color:var(--text-muted);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .breadcrumb b{ color:var(--text-main); font-weight:700; }
+
+  .topbar-right{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex-shrink:0;
+  }
+
+  .icon-btn{
+    position:relative;
+    width:38px; height:38px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:none;
+    border:none;
+    border-radius:10px;
+    color:var(--text-muted);
+    cursor:pointer;
+  }
+  .icon-btn:hover{ background:var(--notice-bg); color:var(--text-main); }
+  .icon-btn:focus-visible{ outline:2px solid var(--accent-rust); outline-offset:2px; }
+
+  .badge-dot{
+    position:absolute;
+    top:8px; right:8px;
+    width:7px; height:7px;
+    border-radius:50%;
+    background:var(--accent-rust);
+    border:1.5px solid var(--card-white);
+  }
+
+  .profile-menu{ position:relative; margin-left:4px; }
+
+  .profile-btn{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    padding:6px 10px 6px 6px;
+    background:none;
+    border:1px solid transparent;
+    border-radius:11px;
+    cursor:pointer;
+  }
+  .profile-btn:hover{ background:var(--notice-bg); }
+  .profile-btn:focus-visible{ outline:2px solid var(--accent-rust); outline-offset:2px; }
+
+  .avatar{
+    width:30px; height:30px;
+    border-radius:50%;
+    background:var(--brand-dark);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:12.5px;
+    font-weight:700;
+    flex-shrink:0;
+  }
+
+  .profile-info{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    line-height:1.3;
+  }
+  .profile-name{ font-size:12.5px; font-weight:700; color:var(--text-main); }
+  .profile-dept{ font-size:11px; color:var(--text-muted); }
+
+  .chevron-icon{ color:var(--text-muted); flex-shrink:0; transition:transform .15s ease; }
+  .profile-btn[aria-expanded="true"] .chevron-icon{ transform:rotate(180deg); }
+
+  .profile-dropdown{
+    position:absolute;
+    top:calc(100% + 8px);
+    right:0;
+    min-width:160px;
+    background:var(--card-white);
+    border:1px solid var(--border-soft);
+    border-radius:12px;
+    box-shadow:0 16px 34px -14px rgba(15,32,25,0.28);
+    padding:6px;
+    display:none;
+    flex-direction:column;
+    z-index:210;
+  }
+  .profile-dropdown.open{ display:flex; }
+
+  .profile-dropdown a{
+    padding:9px 10px;
+    font-size:13px;
+    color:var(--text-main);
+    text-decoration:none;
+    border-radius:8px;
+  }
+  .profile-dropdown a:hover{ background:var(--notice-bg); color:var(--accent-rust); }
+
+  /* ============ APP BODY / LAYOUT ============ */
+  .app-body{
+    display:flex;
+    padding-top:var(--topbar-h);
+    min-height:100vh;
+  }
+
+  .sidebar-overlay{
+    display:none;
+    position:fixed;
+    inset:var(--topbar-h) 0 0 0;
+    background:rgba(15,32,25,0.42);
+    z-index:150;
+  }
+  .sidebar-overlay.show{ display:block; }
+
+  .sidebar-wrapper{
+    display:flex;
+    flex-shrink:0;
+    position:sticky;
+    top:var(--topbar-h);
+    height:calc(100vh - var(--topbar-h));
+    z-index:180;
+  }
+
+  /* ---- Icon rail (1단) ---- */
+  .icon-rail{
+    width:var(--rail-w);
+    flex-shrink:0;
+    background:linear-gradient(165deg, var(--brand-dark) 0%, var(--brand-dark-2) 55%, var(--brand-dark-3) 100%);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+    padding:16px 0;
+    overflow-y:auto;
+  }
+
+  .rail-icon{
+    position:relative;
+    width:52px;
+    height:56px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:5px;
+    background:none;
+    border:none;
+    border-radius:12px;
+    color:var(--text-sub);
+    cursor:pointer;
+  }
+  .rail-icon:hover{ background:rgba(255,255,255,0.07); color:#fff; }
+  .rail-icon:focus-visible{ outline:2px solid var(--accent-amber); outline-offset:-2px; }
+
+  .rail-icon .rail-label{
+    font-size:10.5px;
+    font-weight:600;
+    letter-spacing:-0.01em;
+  }
+
+  .rail-icon::before{
+    content:"";
+    position:absolute;
+    left:0; top:10px; bottom:10px;
+    width:3px;
+    border-radius:0 3px 3px 0;
+    background:var(--accent-rust);
+    opacity:0;
+    transition:opacity .15s ease;
+  }
+
+  .rail-icon.active{
+    background:rgba(255,255,255,0.1);
+    color:#fff;
+  }
+  .rail-icon.active::before{ opacity:1; }
+  .rail-icon.active svg{ color:var(--accent-amber); }
+
+  /* tooltip on rail hover */
+  .rail-icon .rail-tooltip{
+    position:absolute;
+    left:calc(100% + 10px);
+    top:50%;
+    transform:translateY(-50%) translateX(-4px);
+    background:var(--brand-dark-3);
+    color:#fff;
+    font-size:12px;
+    font-weight:600;
+    padding:6px 10px;
+    border-radius:7px;
+    white-space:nowrap;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .12s ease, transform .12s ease;
+    z-index:60;
+  }
+  .rail-icon:hover .rail-tooltip{ opacity:1; transform:translateY(-50%) translateX(0); }
+
+  /* ---- Submenu accordion panel (2단) ----
+     기본값은 접힘(width:0) 상태이며, 아이콘 레일을 클릭했을 때만
+     옆으로 펼쳐집니다(inline slide, 본문 영역을 밀어냄). */
+  .submenu-panel{
+    width:0;
+    flex-shrink:0;
+    background:var(--card-white);
+    border-right:1px solid transparent;
+    overflow:hidden;
+    transition:width .22s ease;
+  }
+  .submenu-panel.panel-open{
+    width:var(--panel-w);
+    border-right:1px solid var(--border-soft);
+  }
+
+  .submenu-panel-inner{
+    width:var(--panel-w);
+    height:100%;
+    overflow-y:auto;
+    padding:14px 10px;
+  }
+
+  .menu-group + .menu-group{ margin-top:2px; }
+
+  .group-header{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding:11px 12px;
+    background:none;
+    border:none;
+    border-radius:10px;
+    font-size:13.5px;
+    font-weight:700;
+    color:var(--text-main);
+    cursor:pointer;
+    text-align:left;
+  }
+  .group-header:hover{ background:var(--notice-bg); }
+  .group-header:focus-visible{ outline:2px solid var(--accent-rust); outline-offset:1px; }
+
+  .group-header .chevron{
+    color:var(--text-muted);
+    flex-shrink:0;
+    transition:transform .2s ease;
+  }
+  .group-header[aria-expanded="true"] .chevron{ transform:rotate(180deg); }
+  .group-header[aria-expanded="true"]{ color:var(--accent-rust); }
+  .group-header[aria-expanded="true"] .chevron{ color:var(--accent-rust); }
+
+  .group-children{
+    display:grid;
+    grid-template-rows:0fr;
+    transition:grid-template-rows .22s ease;
+  }
+  .group-children.open{ grid-template-rows:1fr; }
+
+  .group-children-inner{
+    overflow:hidden;
+    min-height:0;
+  }
+
+  .child-link{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin:2px 4px 2px 26px;
+    padding:9px 10px;
+    border-radius:8px;
+    font-size:13px;
+    color:var(--text-muted);
+    text-decoration:none;
+    border-left:2px solid transparent;
+  }
+  .child-link:hover{ background:var(--notice-bg); color:var(--text-main); }
+
+  .child-link.active{
+    background:rgba(182,93,52,0.1);
+    color:var(--accent-rust);
+    font-weight:700;
+    border-left:2px solid var(--accent-rust);
+  }
+
+  .child-badge{
+    min-width:17px;
+    height:17px;
+    padding:0 5px;
+    border-radius:9px;
+    background:var(--accent-rust);
+    color:#fff;
+    font-size:10.5px;
+    font-weight:700;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+  }
+  .child-link:not(.active) .child-badge{ background:var(--text-sub); }
+
+  /* ============ MAIN CONTENT ============ */
+  .main-content{
+    flex:1;
+    min-width:0;
+    padding:28px 32px 40px;
+  }
+
+  .content-header{ margin-bottom:22px; }
+  .content-header h1{
+    margin:0 0 4px;
+    font-size:21px;
+    font-weight:800;
+    color:var(--text-main);
+    letter-spacing:-0.01em;
+  }
+  .content-sub{
+    margin:0;
+    font-size:13px;
+    color:var(--text-muted);
+  }
+
+  .placeholder-grid{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0,1fr));
+    gap:20px;
+  }
+
+  .placeholder-card{
+    background:var(--card-white);
+    border:1px solid var(--border-soft);
+    border-radius:16px;
+    min-height:280px;
+    display:flex;
+    flex-direction:column;
+  }
+
+  .placeholder-card-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:18px 20px;
+    border-bottom:1px solid var(--border-soft);
+  }
+  .placeholder-card-head h2{
+    margin:0;
+    font-size:15px;
+    font-weight:700;
+    color:var(--text-main);
+  }
+  .placeholder-tag{
+    font-size:10.5px;
+    font-weight:700;
+    letter-spacing:0.06em;
+    color:var(--text-muted);
+    background:var(--notice-bg);
+    padding:4px 9px;
+    border-radius:20px;
+  }
+
+  .placeholder-body{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+
+  .placeholder-body p{
+    margin:0;
+    font-size:12.5px;
+    color:var(--text-sub-2, #B4B1A6);
+    text-align:center;
+    line-height:1.7;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  /* 아이콘 레일은 모든 화면에서 항상 고정 노출됩니다.
+     서브메뉴 패널은 데스크톱/태블릿에서는 본문을 밀어내는 인라인 슬라이드로,
+     모바일에서는 화면이 좁으므로 오버레이 플라이아웃으로 열립니다. */
+
+  @media (max-width:1024px){
+    .placeholder-grid{ grid-template-columns:1fr; }
+  }
+
+  @media (max-width:767px){
+    .hamburger-btn{ display:flex; }
+    .breadcrumb{ display:none; }
+
+    .submenu-panel{
+      position:fixed;
+      top:var(--topbar-h);
+      left:var(--rail-w);
+      height:calc(100vh - var(--topbar-h));
+      box-shadow:14px 0 32px -18px rgba(15,32,25,0.35);
+      z-index:181;
+    }
+
+    .main-content{ padding:22px 16px 32px; }
+  }
+
+  @media (max-width:420px){
+    .profile-info{ display:none; }
+    .logo-text{ display:none; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ============ TOPBAR ============ -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="hamburger-btn" id="hamburgerBtn" aria-label="메뉴 열기" aria-expanded="false">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="logo-text">Healing Food</span>
+      <p class="breadcrumb" id="breadcrumb">근태관리 &gt; <b>휴가신청</b></p>
+    </div>
+
+    <div class="topbar-right">
+      <button class="icon-btn" id="bellBtn" aria-label="알림">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="badge-dot"></span>
+      </button>
+
+      <div class="profile-menu">
+        <button class="profile-btn" id="profileBtn" aria-haspopup="true" aria-expanded="false">
+          <span class="avatar">김</span>
+          <span class="profile-info">
+            <span class="profile-name">김민지 주임</span>
+            <span class="profile-dept">물류지원팀</span>
+          </span>
+          <svg class="chevron-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="profile-dropdown" id="profileDropdown">
+          <a href="#">마이페이지</a>
+          <a href="#">환경설정</a>
+          <a href="#">로그아웃</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ APP BODY ============ -->
+  <div class="app-body">
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <aside class="sidebar-wrapper" id="sidebarWrapper">
+      <nav class="icon-rail" id="iconRail" aria-label="대분류 메뉴"></nav>
+      <div class="submenu-panel" id="submenuPanel"></div>
+    </aside>
+
+    <main class="main-content">
+      <div class="content-header">
+        <h1>홈</h1>
+        <p class="content-sub">오늘도 신선하게, 힐링푸드 사내 시스템에 오신 것을 환영합니다.</p>
+      </div>
+
+      <div class="placeholder-grid">
+        <section class="placeholder-card">
+          <div class="placeholder-card-head">
+            <h2>공지사항</h2>
+            <span class="placeholder-tag">연동 예정</span>
+          </div>
+          <div class="placeholder-body">
+            <p>사내 공지사항이 이 영역에 표시될 예정입니다.</p>
+          </div>
+        </section>
+
+        <section class="placeholder-card">
+          <div class="placeholder-card-head">
+            <h2>즐겨찾기</h2>
+            <span class="placeholder-tag">연동 예정</span>
+          </div>
+          <div class="placeholder-body">
+            <p>자주 쓰는 메뉴를 즐겨찾기로 모아볼 수 있습니다.</p>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+<script>
+  /* =======================================================
+     메뉴 데이터: 여기에 항목을 추가/삭제하면 아이콘 레일과
+     아코디언 서브메뉴가 자동으로 함께 갱신됩니다.
+     icon: 24x24 stroke SVG path 조각 (stroke="currentColor")
+  ======================================================= */
+  const menuData = [
+    {
+      id: 'attendance',
+      label: '근태관리',
+      icon: '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>',
+      children: [
+        { id: 'clock',      label: '출근/퇴근',     badge: null },
+        { id: 'vacation',   label: '휴가신청',       badge: 2 },
+        { id: 'attHistory', label: '근태내역조회',   badge: null }
+      ]
+    },
+    {
+      id: 'hr',
+      label: '인사관리',
+      icon: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><line x1="3" y1="12" x2="21" y2="12"/>',
+      children: [
+        { id: 'empManage',   label: '직원 관리',           badge: null },
+        { id: 'deptManage',  label: '부서 관리',           badge: null },
+        { id: 'rankManage',  label: '직급/직책 관리',       badge: null },
+        { id: 'pwReset',     label: '비밀번호 재설정 승인', badge: null },
+        { id: 'roleManage',  label: '역할/권한 관리',       badge: null }
+      ]
+    }
+  ];
+
+  const DEFAULT_CHILD = 'vacation';
+
+  const iconRail   = document.getElementById('iconRail');
+  const submenuPanel = document.getElementById('submenuPanel');
+  const breadcrumb = document.getElementById('breadcrumb');
+  const sidebarWrapper = document.getElementById('sidebarWrapper');
+  const sidebarOverlay = document.getElementById('sidebarOverlay');
+  const hamburgerBtn = document.getElementById('hamburgerBtn');
+
+  /* 페이지 진입 시 패널은 항상 닫힌 상태로 시작합니다.
+     아이콘을 클릭해야만 옆으로 펼쳐집니다. */
+  let openGroupId = null;
+  let activeChildId = DEFAULT_CHILD;
+
+  function renderMenu(){
+    iconRail.innerHTML = '';
+    submenuPanel.innerHTML = '';
+    const panelInner = document.createElement('div');
+    panelInner.className = 'submenu-panel-inner';
+    submenuPanel.appendChild(panelInner);
+
+    menuData.forEach(group => {
+      /* ---- rail icon button ---- */
+      const railBtn = document.createElement('button');
+      railBtn.className = 'rail-icon';
+      railBtn.type = 'button';
+      railBtn.dataset.group = group.id;
+      railBtn.setAttribute('aria-label', group.label);
+      railBtn.innerHTML =
+        '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + group.icon + '</svg>' +
+        '<span class="rail-label">' + group.label + '</span>' +
+        '<span class="rail-tooltip">' + group.label + '</span>';
+      railBtn.addEventListener('click', () => toggleGroup(group.id));
+      iconRail.appendChild(railBtn);
+
+      /* ---- accordion group in submenu panel ---- */
+      const groupEl = document.createElement('div');
+      groupEl.className = 'menu-group';
+
+      const header = document.createElement('button');
+      header.type = 'button';
+      header.className = 'group-header';
+      header.dataset.group = group.id;
+      header.setAttribute('aria-expanded', 'false');
+      header.innerHTML =
+        '<span>' + group.label + '</span>' +
+        '<svg class="chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+      header.addEventListener('click', () => toggleGroup(group.id));
+
+      const childrenWrap = document.createElement('div');
+      childrenWrap.className = 'group-children';
+      childrenWrap.dataset.group = group.id;
+
+      const inner = document.createElement('div');
+      inner.className = 'group-children-inner';
+
+      group.children.forEach(child => {
+        const link = document.createElement('a');
+        link.href = '#';
+        link.className = 'child-link';
+        link.dataset.group = group.id;
+        link.dataset.child = child.id;
+        link.innerHTML = '<span>' + child.label + '</span>' +
+          (child.badge ? '<span class="child-badge">' + child.badge + '</span>' : '');
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          selectChild(group.id, child.id, child.label);
+        });
+        inner.appendChild(link);
+      });
+
+      childrenWrap.appendChild(inner);
+      groupEl.appendChild(header);
+      groupEl.appendChild(childrenWrap);
+      panelInner.appendChild(groupEl);
+    });
+  }
+
+  function isMobile(){
+    return window.innerWidth <= 767;
+  }
+
+  /* 아이콘을 클릭했을 때만 서브메뉴 패널이 옆으로 펼쳐집니다.
+     같은 아이콘을 다시 누르면 접힙니다. */
+  function toggleGroup(groupId){
+    const willOpen = openGroupId !== groupId;
+    openGroupId = willOpen ? groupId : null;
+    syncGroupUI();
+    willOpen ? openPanel() : closePanel();
+  }
+
+  function selectChild(groupId, childId, childLabel){
+    activeChildId = childId;
+    openGroupId = groupId;
+    syncGroupUI();
+    updateBreadcrumb(groupId, childLabel);
+
+    /* 모바일은 화면이 좁아 오버레이 방식이므로 선택 후 자동으로 닫아줍니다.
+       데스크톱/태블릿은 인라인으로 밀려나는 방식이라 계속 열어둡니다. */
+    if (isMobile()) closePanel();
+  }
+
+  function syncGroupUI(){
+    document.querySelectorAll('.rail-icon').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.group === openGroupId);
+    });
+    document.querySelectorAll('.group-header').forEach(h => {
+      h.setAttribute('aria-expanded', String(h.dataset.group === openGroupId));
+    });
+    document.querySelectorAll('.group-children').forEach(gc => {
+      gc.classList.toggle('open', gc.dataset.group === openGroupId);
+    });
+    document.querySelectorAll('.child-link').forEach(link => {
+      link.classList.toggle('active', link.dataset.child === activeChildId);
+    });
+  }
+
+  function updateBreadcrumb(groupId, childLabel){
+    const group = menuData.find(g => g.id === groupId);
+    if (!group) return;
+    breadcrumb.innerHTML = group.label + ' &gt; <b>' + childLabel + '</b>';
+  }
+
+  /* ---- 서브메뉴 패널 열기/닫기 ----
+     데스크톱·태블릿: 본문을 밀어내는 인라인 슬라이드
+     모바일: 화면이 좁으므로 오버레이 + 딤 배경 */
+  function openPanel(){
+    submenuPanel.classList.add('panel-open');
+    if (isMobile()) sidebarOverlay.classList.add('show');
+    hamburgerBtn.setAttribute('aria-expanded', 'true');
+  }
+  function closePanel(){
+    submenuPanel.classList.remove('panel-open');
+    sidebarOverlay.classList.remove('show');
+    hamburgerBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  hamburgerBtn.addEventListener('click', () => {
+    if (submenuPanel.classList.contains('panel-open')){
+      openGroupId = null;
+      syncGroupUI();
+      closePanel();
+      return;
+    }
+    if (!openGroupId) {
+      openGroupId = menuData[0] ? menuData[0].id : null;
+      syncGroupUI();
+    }
+    openPanel();
+  });
+  sidebarOverlay.addEventListener('click', () => {
+    openGroupId = null;
+    syncGroupUI();
+    closePanel();
+  });
+
+  /* ---- profile dropdown ---- */
+  const profileBtn = document.getElementById('profileBtn');
+  const profileDropdown = document.getElementById('profileDropdown');
+  profileBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = profileDropdown.classList.toggle('open');
+    profileBtn.setAttribute('aria-expanded', String(open));
+  });
+  document.addEventListener('click', (e) => {
+    if (!profileBtn.contains(e.target) && !profileDropdown.contains(e.target)){
+      profileDropdown.classList.remove('open');
+      profileBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  /* ---- 패널 바깥을 클릭하면 닫힘 ---- */
+  document.addEventListener('click', (e) => {
+    if (submenuPanel.classList.contains('panel-open')){
+      const clickedRail = iconRail.contains(e.target);
+      const clickedPanel = submenuPanel.contains(e.target);
+      const clickedHamburger = hamburgerBtn.contains(e.target);
+      if (!clickedRail && !clickedPanel && !clickedHamburger){
+        openGroupId = null;
+        syncGroupUI();
+        closePanel();
+      }
+    }
+  });
+
+  /* ---- 화면 크기 변경 시 모바일 딤 배경 상태만 정리 ---- */
+  window.addEventListener('resize', () => {
+    if (!isMobile()) sidebarOverlay.classList.remove('show');
+  });
+
+  /* ---- init ---- */
+  renderMenu();
+  syncGroupUI();
+</script>
+
+</body>
+</html>

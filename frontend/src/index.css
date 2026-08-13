@@ -5,6 +5,11 @@
   --accent: #2563eb;
   --danger: #dc2626;
   --bg-muted: #f5f6f8;
+
+  /* 로그인 화면 브랜드 팔레트 */
+  --pine-green: #1b3b2f;
+  --rust: #b65d34;
+  --cream: #f6f4ee;
 }
 
 * {
@@ -231,4 +236,303 @@ button[type="submit"] {
 .checkbox-row code {
   color: #888;
   font-size: 0.75rem;
+}
+
+/* ── 로그인 화면 (스플릿 카드) ───────────────────────── */
+
+.login-split {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(300px, 440px) 1fr;
+  background: var(--cream);
+  font-family: "Poppins", "Noto Sans KR", sans-serif;
+}
+
+@media (max-width: 840px) {
+  .login-split {
+    grid-template-columns: 1fr;
+  }
+  .login-brand {
+    min-height: 340px;
+  }
+}
+
+.login-brand {
+  background: var(--pine-green);
+  color: #eef2ee;
+  padding: 40px 44px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-brand-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-logo-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--rust);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+
+.brand-logo-text {
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: white;
+  letter-spacing: -0.01em;
+}
+
+.brand-sub-text {
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: 0.78rem;
+  color: #cdd9d0;
+  margin-top: 2px;
+}
+
+.login-brand-mid {
+  margin-top: auto;
+  padding-top: 60px;
+}
+
+.brand-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--rust);
+  margin: 0 0 14px;
+}
+
+.brand-headline {
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: 1.85rem;
+  line-height: 1.4;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 16px;
+}
+
+.brand-desc {
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #cdd9d0;
+  max-width: 340px;
+  margin: 0;
+}
+
+.brand-path {
+  width: 100%;
+  max-width: 320px;
+  margin-top: 36px;
+}
+
+.brand-footer {
+  margin-top: auto;
+  padding-top: 40px;
+  font-size: 0.75rem;
+  color: #8fa398;
+}
+
+.login-form-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  background: var(--cream);
+}
+
+.login-form-inner {
+  width: 100%;
+  max-width: 380px;
+}
+
+.login-title {
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 6px;
+}
+
+.login-subtitle {
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: 0.88rem;
+  color: #6b6b6b;
+  margin: 0 0 28px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #2a2a2a;
+}
+
+.login-field input {
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: 0.92rem;
+  font-weight: 400;
+  padding: 11px 14px;
+  border-radius: 8px;
+  border: 1px solid #e3ddd0;
+  background: #fbfaf6;
+  width: 100%;
+}
+
+.login-field input:focus {
+  outline: none;
+  border-color: var(--pine-green);
+  background: white;
+}
+
+.password-input-wrap {
+  position: relative;
+  display: flex;
+}
+
+.password-input-wrap input {
+  flex: 1;
+  padding-right: 40px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  padding: 6px;
+  color: #8a8a8a;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.login-options-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: 0.82rem;
+}
+
+.remember-me {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #555;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.remember-me input {
+  width: 14px;
+  height: 14px;
+}
+
+.forgot-link {
+  color: #6b6b6b;
+  text-decoration: none;
+}
+
+.forgot-link:hover {
+  text-decoration: underline;
+}
+
+button.login-submit {
+  background: var(--rust);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 13px;
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button.login-submit:hover {
+  filter: brightness(1.06);
+}
+
+button.login-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 16px;
+  color: #9a9a9a;
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: 0.78rem;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e6e0d3;
+}
+
+.login-notice {
+  background: #f1ece0;
+  border-left: 3px solid var(--rust);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: #4a4a4a;
+  display: flex;
+  gap: 8px;
+}
+
+.login-notice::before {
+  content: "•";
+  color: var(--rust);
+  font-weight: 700;
+}
+
+.login-reset-link {
+  display: block;
+  text-align: center;
+  margin-top: 16px;
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: 0.82rem;
+  color: #555;
+  text-decoration: underline;
+}
+
+.login-footnote {
+  text-align: center;
+  margin-top: 20px;
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: 0.76rem;
+  color: #a3a3a3;
 }

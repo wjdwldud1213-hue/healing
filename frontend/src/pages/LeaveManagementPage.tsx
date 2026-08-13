@@ -96,11 +96,11 @@ export function LeaveManagementPage() {
       </p>
 
       <div className="toolbar">
-        <button type="button" onClick={() => setShowBasisModal(true)}>
-          연차산출근거
-        </button>
         <button type="button" className="toolbar-end" onClick={() => setShowApplyModal(true)}>
           연차 신청
+        </button>
+        <button type="button" onClick={() => setShowBasisModal(true)}>
+          연차산출근거
         </button>
       </div>
 

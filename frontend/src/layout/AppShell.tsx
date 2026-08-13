@@ -45,8 +45,8 @@ function ChevronIcon({ className }: { className?: string }) {
 function PinIcon({ filled }: { filled: boolean }) {
   return (
     <svg
-      width="12"
-      height="12"
+      width="24"
+      height="24"
       viewBox="0 0 24 24"
       fill={filled ? "currentColor" : "none"}
       stroke="currentColor"

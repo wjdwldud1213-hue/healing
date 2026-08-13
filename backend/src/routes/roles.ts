@@ -13,14 +13,14 @@ rolesRoute.use("*", requireAuth);
 // 역할 추가/수정과 권한 매핑 변경은 ROLE_MANAGE 권한(시스템관리자)만 가능하다.
 rolesRoute.get("/", async (c) => {
   const db = getDb(c.env.DB);
-  const rows = await db.select().from(roles).orderBy(roles.name);
+  const rows = await db.select().from(roles).orderBy(roles.sortOrder);
   return c.json(rows);
 });
 
 rolesRoute.post("/", requirePermission("ROLE_MANAGE"), async (c) => {
   const body = await c.req
-    .json<{ name?: string; description?: string }>()
-    .catch(() => ({}) as { name?: string; description?: string });
+    .json<{ name?: string; description?: string; sortOrder?: number }>()
+    .catch(() => ({}) as { name?: string; description?: string; sortOrder?: number });
   const name = (body.name ?? "").trim();
   if (!name) return c.json({ error: "역할 이름을 입력하세요." }, 400);
 
@@ -30,7 +30,7 @@ rolesRoute.post("/", requirePermission("ROLE_MANAGE"), async (c) => {
 
   const [created] = await db
     .insert(roles)
-    .values({ name, description: body.description ?? null })
+    .values({ name, description: body.description ?? null, sortOrder: body.sortOrder ?? 0 })
     .returning();
   return c.json(created, 201);
 });
@@ -39,14 +39,15 @@ rolesRoute.patch("/:id", requirePermission("ROLE_MANAGE"), async (c) => {
   const id = Number(c.req.param("id"));
   if (!Number.isInteger(id)) return c.json({ error: "잘못된 역할 ID입니다." }, 400);
   const body = await c.req
-    .json<{ name?: string; description?: string; isActive?: boolean }>()
-    .catch(() => ({}) as { name?: string; description?: string; isActive?: boolean });
+    .json<{ name?: string; description?: string; isActive?: boolean; sortOrder?: number }>()
+    .catch(() => ({}) as { name?: string; description?: string; isActive?: boolean; sortOrder?: number });
 
   const db = getDb(c.env.DB);
   const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() };
   if (body.name !== undefined) updates.name = body.name.trim();
   if (body.description !== undefined) updates.description = body.description;
   if (body.isActive !== undefined) updates.isActive = body.isActive;
+  if (body.sortOrder !== undefined) updates.sortOrder = body.sortOrder;
 
   await db.update(roles).set(updates).where(eq(roles.id, id));
   const updated = await db.query.roles.findFirst({ where: eq(roles.id, id) });

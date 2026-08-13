@@ -2,6 +2,7 @@ export type Department = {
   id: number;
   code: string;
   name: string;
+  sortOrder: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -14,6 +15,7 @@ export type Role = {
   id: number;
   name: string;
   description: string | null;
+  sortOrder: number;
   isActive: boolean;
 };
 

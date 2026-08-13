@@ -13,14 +13,14 @@ departmentsRoute.use("*", requireAuth);
 // 추가/수정(코드 배정, 비활성화)은 DEPARTMENT_MANAGE 권한(시스템관리자)만 가능하다.
 departmentsRoute.get("/", async (c) => {
   const db = getDb(c.env.DB);
-  const rows = await db.select().from(departments).orderBy(departments.code);
+  const rows = await db.select().from(departments).orderBy(departments.sortOrder);
   return c.json(rows);
 });
 
 departmentsRoute.post("/", requirePermission("DEPARTMENT_MANAGE"), async (c) => {
   const body = await c.req
-    .json<{ code?: string; name?: string }>()
-    .catch(() => ({}) as { code?: string; name?: string });
+    .json<{ code?: string; name?: string; sortOrder?: number }>()
+    .catch(() => ({}) as { code?: string; name?: string; sortOrder?: number });
   const code = (body.code ?? "").trim().toUpperCase();
   const name = (body.name ?? "").trim();
 
@@ -40,7 +40,7 @@ departmentsRoute.post("/", requirePermission("DEPARTMENT_MANAGE"), async (c) => 
   }
 
   await db.batch([
-    db.insert(departments).values({ code, name }),
+    db.insert(departments).values({ code, name, sortOrder: body.sortOrder ?? 0 }),
     db.insert(departmentCodeSequences).values({ departmentCode: code, lastSeq: 0 }),
   ]);
 
@@ -53,15 +53,16 @@ departmentsRoute.patch("/:id", requirePermission("DEPARTMENT_MANAGE"), async (c)
   if (!Number.isInteger(id)) return c.json({ error: "잘못된 부서 ID입니다." }, 400);
 
   const body = await c.req
-    .json<{ name?: string; isActive?: boolean }>()
-    .catch(() => ({}) as { name?: string; isActive?: boolean });
+    .json<{ name?: string; isActive?: boolean; sortOrder?: number }>()
+    .catch(() => ({}) as { name?: string; isActive?: boolean; sortOrder?: number });
 
   const db = getDb(c.env.DB);
-  const updates: { name?: string; isActive?: boolean; updatedAt: string } = {
+  const updates: { name?: string; isActive?: boolean; sortOrder?: number; updatedAt: string } = {
     updatedAt: new Date().toISOString(),
   };
   if (body.name !== undefined) updates.name = body.name.trim();
   if (body.isActive !== undefined) updates.isActive = body.isActive;
+  if (body.sortOrder !== undefined) updates.sortOrder = body.sortOrder;
 
   await db.update(departments).set(updates).where(eq(departments.id, id));
   const updated = await db.query.departments.findFirst({ where: eq(departments.id, id) });

@@ -6,6 +6,7 @@ import type { MenuGroup } from "./menuData";
 
 const MOBILE_BREAKPOINT = 767;
 const PIN_STORAGE_KEY = "gw:sidebarPinned";
+const OPEN_GROUP_STORAGE_KEY = "gw:sidebarOpenGroup";
 
 function GroupIcon({ pathFragment }: { pathFragment: string }) {
   return (
@@ -92,27 +93,40 @@ export function AppShell() {
   const location = useLocation();
   const isMobile = useIsMobile();
 
-  // openGroupId: 어떤 그룹이 "논리적으로" 펼쳐져 있는지 (모바일에서 패널을 닫아도 유지됨)
-  // panelVisible: 서브메뉴 패널이 실제로 화면에 보이는지 (모바일 오버레이 표시 여부)
-  // pinned: 고정 모드. 켜져 있으면 본문(main-content)을 클릭해도 패널이 자동으로 닫히지 않는다.
-  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
-  const [panelVisible, setPanelVisible] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [pinned, setPinned] = useState(() => localStorage.getItem(PIN_STORAGE_KEY) === "1");
-
-  const shellRef = useRef<HTMLDivElement>(null);
-  const profileRef = useRef<HTMLDivElement>(null);
-
   const visibleMenu = useMemo(
     () => filterMenuByPermissions(currentUser?.permissions ?? []),
     [currentUser],
   );
+
+  // pinned: 고정 모드. 켜져 있으면 본문(main-content)을 클릭해도 패널이 자동으로 닫히지 않고,
+  // 로그아웃 후 다시 로그인해도(=이 컴포넌트가 새로 mount돼도) 켜져 있던 그룹이 그대로 펼쳐진다.
+  const initialPinned = typeof window !== "undefined" && localStorage.getItem(PIN_STORAGE_KEY) === "1";
+
+  // openGroupId: 어떤 그룹이 "논리적으로" 펼쳐져 있는지 (모바일에서 패널을 닫아도 유지됨)
+  // panelVisible: 서브메뉴 패널이 실제로 화면에 보이는지 (모바일 오버레이 표시 여부)
+  const [openGroupId, setOpenGroupId] = useState<string | null>(() => {
+    if (!initialPinned) return null;
+    const stored = localStorage.getItem(OPEN_GROUP_STORAGE_KEY);
+    if (stored && visibleMenu.some((g) => g.id === stored)) return stored;
+    return visibleMenu[0]?.id ?? null;
+  });
+  const [panelVisible, setPanelVisible] = useState(() => initialPinned && !isMobile && openGroupId != null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [pinned, setPinned] = useState(initialPinned);
+
+  const shellRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   const activeMatch = findMenuItemByPath(location.pathname);
 
   useEffect(() => {
     localStorage.setItem(PIN_STORAGE_KEY, pinned ? "1" : "0");
   }, [pinned]);
+
+  // 고정 여부와 상관없이 마지막으로 펼쳤던 그룹을 기억해둔다 (고정 상태일 때만 복원에 사용).
+  useEffect(() => {
+    if (openGroupId) localStorage.setItem(OPEN_GROUP_STORAGE_KEY, openGroupId);
+  }, [openGroupId]);
 
   // 라우트가 바뀔 때마다(직접 URL 진입/새로고침 포함) 해당 그룹을 논리적으로 펼친다.
   // 데스크톱은 패널을 계속 보여주고, 모바일은 오버레이를 자동으로 띄우지 않고 상태만 기억한다.

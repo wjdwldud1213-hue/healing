@@ -42,6 +42,18 @@ const LUNAR_AND_SUBSTITUTE_HOLIDAYS: Record<string, string> = {
   "2026-09-25": "추석",
   "2026-09-26": "추석 연휴",
   "2026-10-05": "대체공휴일(개천절)",
+  "2027-02-06": "설날 연휴",
+  "2027-02-07": "설날",
+  "2027-02-08": "설날 연휴",
+  "2027-02-09": "대체공휴일(설날)",
+  "2027-05-13": "부처님오신날",
+  "2027-08-16": "대체공휴일(광복절)",
+  "2027-09-14": "추석 연휴",
+  "2027-09-15": "추석",
+  "2027-09-16": "추석 연휴",
+  "2027-10-04": "대체공휴일(개천절)",
+  "2027-10-11": "대체공휴일(한글날)",
+  "2027-12-27": "대체공휴일(크리스마스)",
 };
 
 function getHolidayName(dateStr: string): string | null {
@@ -75,7 +87,7 @@ export function AttendanceHistoryPage() {
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth() + 1); // 1~12
   const yearOptions = useMemo(
-    () => Array.from({ length: 11 }, (_, i) => today.getFullYear() - 5 + i),
+    () => Array.from({ length: 3 }, (_, i) => today.getFullYear() - 1 + i),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
@@ -115,6 +127,9 @@ export function AttendanceHistoryPage() {
     .filter((r) => r.status === "APPROVED" && r.startDate.startsWith(`${viewYear}-${pad2(viewMonth)}`))
     .reduce((sum, r) => sum + r.days, 0);
 
+  const minYear = yearOptions[0];
+  const maxYear = yearOptions[yearOptions.length - 1];
+
   function goToMonth(delta: number) {
     let y = viewYear;
     let m = viewMonth + delta;
@@ -125,6 +140,7 @@ export function AttendanceHistoryPage() {
       m = 1;
       y += 1;
     }
+    if (y < minYear || y > maxYear) return;
     setViewYear(y);
     setViewMonth(m);
   }

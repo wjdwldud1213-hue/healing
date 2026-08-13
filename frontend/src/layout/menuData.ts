@@ -49,11 +49,11 @@ export const menuData: MenuGroup[] = [
       { id: "deptManage", label: "부서 관리", path: "/departments", anyOfPermissions: ["DEPARTMENT_MANAGE"] },
       {
         id: "rankManage",
-        label: "직급관리",
+        label: "직급 관리",
         path: "/reference",
         anyOfPermissions: ["JOB_CODE_MANAGE"],
       },
-      { id: "roleManage", label: "권한관리", path: "/roles", anyOfPermissions: ["ROLE_MANAGE"] },
+      { id: "roleManage", label: "권한 관리", path: "/roles", anyOfPermissions: ["ROLE_MANAGE"] },
       {
         id: "pwReset",
         label: "비밀번호 재설정 승인",

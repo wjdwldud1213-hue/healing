@@ -29,20 +29,12 @@ export const menuData: MenuGroup[] = [
         path: "/employees",
         anyOfPermissions: ["EMPLOYEE_READ_ALL", "EMPLOYEE_READ_DEPARTMENT"],
       },
-      { id: "deptManage", label: "부서 관리", path: "/departments", anyOfPermissions: ["DEPARTMENT_MANAGE"] },
-      {
-        id: "rankManage",
-        label: "직급/직책 관리",
-        path: "/reference",
-        anyOfPermissions: ["JOB_CODE_MANAGE"],
-      },
       {
         id: "pwReset",
         label: "비밀번호 재설정 승인",
         path: "/password-resets",
         anyOfPermissions: ["EMPLOYEE_APPROVE"],
       },
-      { id: "roleManage", label: "역할/권한 관리", path: "/roles", anyOfPermissions: ["ROLE_MANAGE"] },
     ],
   },
   {
@@ -53,6 +45,21 @@ export const menuData: MenuGroup[] = [
       { id: "clock", label: "출근/퇴근", path: "/coming-soon/clock", badge: null },
       { id: "vacation", label: "휴가신청", path: "/coming-soon/vacation", badge: 2 },
       { id: "attHistory", label: "근태내역조회", path: "/coming-soon/attHistory", badge: null },
+    ],
+  },
+  {
+    id: "system",
+    label: "시스템관리",
+    icon: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+    children: [
+      { id: "deptManage", label: "부서 관리", path: "/departments", anyOfPermissions: ["DEPARTMENT_MANAGE"] },
+      {
+        id: "rankManage",
+        label: "직급/직책 관리",
+        path: "/reference",
+        anyOfPermissions: ["JOB_CODE_MANAGE"],
+      },
+      { id: "roleManage", label: "역할/권한 관리", path: "/roles", anyOfPermissions: ["ROLE_MANAGE"] },
     ],
   },
 ];

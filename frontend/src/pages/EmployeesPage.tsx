@@ -52,7 +52,7 @@ export function EmployeesPage() {
           value={departmentFilter}
           onChange={(e) => setDepartmentFilter(e.target.value ? Number(e.target.value) : "")}
         >
-          <option value="">전체 부서</option>
+          <option value="">부서별</option>
           {departments.map((d) => (
             <option key={d.id} value={d.id}>
               {d.name}
@@ -63,7 +63,7 @@ export function EmployeesPage() {
           value={statusFilter}
           onChange={(e) => setStatusFilter((e.target.value || "") as EmploymentStatus | "")}
         >
-          <option value="">전체 상태</option>
+          <option value="">재직상태</option>
           <option value="ACTIVE">재직</option>
           <option value="LEAVE">휴직</option>
           <option value="RESIGNED">퇴사</option>
@@ -91,8 +91,8 @@ export function EmployeesPage() {
             <th>이름</th>
             <th>부서</th>
             <th>직급</th>
-            <th>상태</th>
-            <th>휴대폰</th>
+            <th>재직상태</th>
+            <th>내선번호</th>
             <th></th>
           </tr>
         </thead>
@@ -104,7 +104,7 @@ export function EmployeesPage() {
               <td>{emp.department.name}</td>
               <td>{emp.jobGrade.name}</td>
               <td>{STATUS_LABEL[emp.employmentStatus]}</td>
-              <td>{emp.mobilePhone}</td>
+              <td>{emp.extensionNumber ?? "-"}</td>
               <td className="row-actions">
                 {canWrite && (
                   <button

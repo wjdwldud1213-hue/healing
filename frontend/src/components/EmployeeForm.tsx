@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api/client";
-import type { Department, Employee, EmploymentStatus, JobGrade, JobTitle, Role } from "../types";
+import type { Department, Employee, EmploymentStatus, JobGrade, Role } from "../types";
 
 type Props = {
   mode: "create" | "edit";
@@ -12,7 +12,6 @@ type Props = {
 export function EmployeeForm({ mode, employee, onDone }: Props) {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [jobGrades, setJobGrades] = useState<JobGrade[]>([]);
-  const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
@@ -21,7 +20,6 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
   const [name, setName] = useState(employee?.name ?? "");
   const [departmentId, setDepartmentId] = useState(employee?.departmentId ?? 0);
   const [jobGradeId, setJobGradeId] = useState(employee?.jobGradeId ?? 0);
-  const [jobTitleId, setJobTitleId] = useState<number | null>(employee?.jobTitleId ?? null);
   const [hireDate, setHireDate] = useState(employee?.hireDate ?? "");
   const [mobilePhone, setMobilePhone] = useState(employee?.mobilePhone ?? "");
   const [extensionNumber, setExtensionNumber] = useState(employee?.extensionNumber ?? "");
@@ -37,12 +35,10 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
     Promise.all([
       api.get<Department[]>("/departments"),
       api.get<JobGrade[]>("/job-grades"),
-      api.get<JobTitle[]>("/job-titles"),
       api.get<Role[]>("/roles"),
-    ]).then(([d, g, t, r]) => {
+    ]).then(([d, g, r]) => {
       setDepartments(d.filter((x) => x.isActive));
       setJobGrades(g.filter((x) => x.isActive));
-      setJobTitles(t.filter((x) => x.isActive));
       setRoles(r.filter((x) => x.isActive));
     });
   }, []);
@@ -56,7 +52,6 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
           name,
           departmentId,
           jobGradeId,
-          jobTitleId,
           hireDate,
           mobilePhone,
           extensionNumber: extensionNumber || null,
@@ -73,7 +68,6 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
           name,
           departmentId,
           jobGradeId,
-          jobTitleId,
           mobilePhone,
           extensionNumber: extensionNumber || null,
           roleId,
@@ -145,20 +139,6 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
             ))}
           </select>
         </label>
-        <label>
-          직책 (선택)
-          <select
-            value={jobTitleId ?? 0}
-            onChange={(e) => setJobTitleId(Number(e.target.value) || null)}
-          >
-            <option value={0}>없음</option>
-            {jobTitles.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </label>
         {mode === "create" && (
           <label>
             입사일
@@ -172,13 +152,13 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
         )}
         {mode === "create" && (
           <label>
-            주소 (선택)
+            주소
             <input value={address} onChange={(e) => setAddress(e.target.value)} />
           </label>
         )}
         {mode === "create" && (
           <label>
-            급여 (선택, 원)
+            급여 (원)
             <input
               type="number"
               min="0"
@@ -191,7 +171,7 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
         )}
         {mode === "create" && (
           <label>
-            연차일수 (선택)
+            연차일수
             <input
               type="number"
               min="0"
@@ -224,11 +204,11 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
           />
         </label>
         <label>
-          내선번호 (선택)
+          내선번호
           <input value={extensionNumber} onChange={(e) => setExtensionNumber(e.target.value)} />
         </label>
         <label>
-          역할(권한)
+          권한
           <select value={roleId} onChange={(e) => setRoleId(Number(e.target.value))} required>
             <option value={0} disabled>
               선택

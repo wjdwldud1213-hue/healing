@@ -742,16 +742,24 @@ button[type="submit"] {
   font-weight: 600;
 }
 
+.calendar-table th.sunday-label {
+  color: var(--danger);
+}
+
+.calendar-table th.saturday-label {
+  color: var(--accent);
+}
+
 .calendar-cell {
   height: 84px;
   vertical-align: top;
   padding: 6px;
   border: 1px solid var(--border-soft);
   cursor: pointer;
+  transition: background-color 0.1s ease;
 }
 
-.calendar-cell.empty {
-  cursor: default;
+.calendar-cell:hover {
   background: var(--bg-muted);
 }
 
@@ -761,6 +769,10 @@ button[type="submit"] {
 
 .calendar-cell.has-record {
   border-color: var(--accent-rust);
+}
+
+.calendar-cell.other-month {
+  background: var(--bg-muted);
 }
 
 .calendar-day-num {
@@ -775,6 +787,22 @@ button[type="submit"] {
 
 .calendar-day-num.holiday {
   color: var(--danger);
+}
+
+.calendar-day-num.other-month {
+  color: var(--text-sub);
+  font-weight: 400;
+}
+
+.calendar-day-num.is-today {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent-rust);
+  color: white;
 }
 
 .calendar-holiday-name {

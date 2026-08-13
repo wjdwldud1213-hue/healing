@@ -129,20 +129,43 @@ export function AttendanceHistoryPage() {
     setViewMonth(m);
   }
 
+  // 네이버/구글 캘린더처럼 이전·다음 달의 앞뒤 날짜도 흐리게 채워서 항상 꽉 찬 격자로 보여준다.
   const weeks = useMemo(() => {
+    type Cell = { day: number; dateStr: string; inMonth: boolean };
+
     const firstOfMonth = new Date(Date.UTC(viewYear, viewMonth - 1, 1));
     const daysInMonth = new Date(Date.UTC(viewYear, viewMonth, 0)).getUTCDate();
     const startWeekday = firstOfMonth.getUTCDay(); // 0=일
 
-    const cells: Array<{ day: number; dateStr: string } | null> = [];
-    for (let i = 0; i < startWeekday; i++) cells.push(null);
-    for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, dateStr: toDateStr(viewYear, viewMonth, d) });
-    while (cells.length % 7 !== 0) cells.push(null);
+    const prevMonthDays = new Date(Date.UTC(viewYear, viewMonth - 1, 0)).getUTCDate();
+    const prevMonthYear = viewMonth === 1 ? viewYear - 1 : viewYear;
+    const prevMonth = viewMonth === 1 ? 12 : viewMonth - 1;
+    const nextMonthYear = viewMonth === 12 ? viewYear + 1 : viewYear;
+    const nextMonth = viewMonth === 12 ? 1 : viewMonth + 1;
 
-    const result: Array<Array<{ day: number; dateStr: string } | null>> = [];
+    const cells: Cell[] = [];
+    for (let i = 0; i < startWeekday; i++) {
+      const day = prevMonthDays - startWeekday + 1 + i;
+      cells.push({ day, dateStr: toDateStr(prevMonthYear, prevMonth, day), inMonth: false });
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      cells.push({ day: d, dateStr: toDateStr(viewYear, viewMonth, d), inMonth: true });
+    }
+    let nextDay = 1;
+    while (cells.length % 7 !== 0) {
+      cells.push({ day: nextDay, dateStr: toDateStr(nextMonthYear, nextMonth, nextDay), inMonth: false });
+      nextDay++;
+    }
+
+    const result: Cell[][] = [];
     for (let i = 0; i < cells.length; i += 7) result.push(cells.slice(i, i + 7));
     return result;
   }, [viewYear, viewMonth]);
+
+  function goToToday() {
+    setViewYear(today.getFullYear());
+    setViewMonth(today.getMonth() + 1);
+  }
 
   const todayStr = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
   const selectedRecords = selectedDate ? (recordsByDate.get(selectedDate) ?? []) : [];
@@ -199,6 +222,9 @@ export function AttendanceHistoryPage() {
                 </option>
               ))}
             </select>
+            <button type="button" onClick={goToToday}>
+              오늘
+            </button>
           </div>
           <button type="button" onClick={() => goToMonth(1)}>
             다음 달 ›
@@ -208,8 +234,10 @@ export function AttendanceHistoryPage() {
         <table className="calendar-table">
           <thead>
             <tr>
-              {WEEKDAY_LABELS.map((w) => (
-                <th key={w}>{w}</th>
+              {WEEKDAY_LABELS.map((w, idx) => (
+                <th key={w} className={idx === 0 ? "sunday-label" : idx === 6 ? "saturday-label" : undefined}>
+                  {w}
+                </th>
               ))}
             </tr>
           </thead>
@@ -217,20 +245,30 @@ export function AttendanceHistoryPage() {
             {weeks.map((week, i) => (
               <tr key={i}>
                 {week.map((cell, j) => {
-                  if (!cell) return <td key={j} className="calendar-cell empty" />;
                   const dayRecords = recordsByDate.get(cell.dateStr) ?? [];
                   const holidayName = getHolidayName(cell.dateStr);
-                  const dayNumClass = holidayName || j === 0 ? "holiday" : j === 6 ? "saturday" : "";
+                  const isToday = cell.dateStr === todayStr;
+                  const dayNumClass = !cell.inMonth
+                    ? "other-month"
+                    : isToday
+                      ? "is-today"
+                      : holidayName || j === 0
+                        ? "holiday"
+                        : j === 6
+                          ? "saturday"
+                          : "";
                   return (
                     <td
                       key={j}
-                      className={`calendar-cell${cell.dateStr === todayStr ? " today" : ""}${dayRecords.length ? " has-record" : ""}`}
+                      className={`calendar-cell${isToday ? " today" : ""}${dayRecords.length ? " has-record" : ""}${!cell.inMonth ? " other-month" : ""}`}
                       onClick={() => setSelectedDate(cell.dateStr)}
                     >
                       <span className={`calendar-day-num${dayNumClass ? ` ${dayNumClass}` : ""}`}>
                         {cell.day}
                       </span>
-                      {holidayName && <span className="calendar-holiday-name">{holidayName}</span>}
+                      {cell.inMonth && holidayName && (
+                        <span className="calendar-holiday-name">{holidayName}</span>
+                      )}
                       {dayRecords.map((r, idx) => (
                         <span
                           key={idx}

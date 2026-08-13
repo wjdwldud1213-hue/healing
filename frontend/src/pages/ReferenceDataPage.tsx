@@ -82,9 +82,9 @@ export function ReferenceDataPage() {
       <table>
         <thead>
           <tr>
-            <th></th>
             <th>직급</th>
             <th>상태</th>
+            <th></th>
             <th></th>
           </tr>
         </thead>
@@ -99,7 +99,6 @@ export function ReferenceDataPage() {
               onDragEnd={() => setDraggedId(null)}
               style={{ opacity: draggedId === g.id ? 0.4 : 1, cursor: "grab" }}
             >
-              <td aria-hidden="true">⠿</td>
               <td>{g.name}</td>
               <td>{g.isActive ? "사용중" : "비활성"}</td>
               <td>
@@ -107,6 +106,7 @@ export function ReferenceDataPage() {
                   {g.isActive ? "비활성화" : "다시 사용"}
                 </button>
               </td>
+              <td aria-hidden="true">⠿</td>
             </tr>
           ))}
         </tbody>

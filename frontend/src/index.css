@@ -741,14 +741,13 @@ button[type="submit"] {
 }
 
 .leave-stat-label {
-  color: var(--text-muted);
-  font-size: 13px;
+  font-size: 0.9rem;
+  font-weight: bold;
 }
 
 .leave-stat-value {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-main);
+  font-size: 0.9rem;
+  font-weight: normal;
 }
 
 .calendar-table {

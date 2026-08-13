@@ -76,18 +76,6 @@ export function LoginPage() {
             </div>
             <p className="login-company-kr">최상의 제품을 정직하게 공급하는 기업 (주) 힐링푸드</p>
 
-            <div className="login-eyebrow">Employee Portal</div>
-            <h2 className="login-headline">
-              오늘도 신선하게,
-              <br />
-              힐링푸드의 하루가
-              <br />
-              시작됩니다.
-            </h2>
-            <p className="login-sub-copy">
-              주문 접수부터 배송까지, 사내 업무를 하나의 시스템에서 확인하세요.
-            </p>
-
             <RouteGraphic />
           </div>
 
@@ -100,12 +88,11 @@ export function LoginPage() {
         <div className="login-form-panel">
           <div className="login-form-header">
             <h1>로그인</h1>
-            <p>사내 계정으로 로그인해 주세요.</p>
           </div>
 
           <form onSubmit={handleSubmit} noValidate>
             <div className="login-field">
-              <label htmlFor="employeeId">아이디(사번)</label>
+              <label htmlFor="employeeId">아이디</label>
               <div className="login-input-wrap">
                 <input
                   type="text"
@@ -180,8 +167,6 @@ export function LoginPage() {
           <div className="login-reset-row">
             <Link to="/forgot-password">비밀번호 재설정</Link>
           </div>
-
-          <p className="login-footnote">힐링푸드 직원 전용 시스템입니다.</p>
         </div>
       </div>
     </div>

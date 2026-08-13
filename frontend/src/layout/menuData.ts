@@ -29,12 +29,6 @@ export const menuData: MenuGroup[] = [
         path: "/employees",
         anyOfPermissions: ["EMPLOYEE_READ_ALL", "EMPLOYEE_READ_DEPARTMENT"],
       },
-      {
-        id: "pwReset",
-        label: "비밀번호 재설정 승인",
-        path: "/password-resets",
-        anyOfPermissions: ["EMPLOYEE_APPROVE"],
-      },
     ],
   },
   {
@@ -55,11 +49,17 @@ export const menuData: MenuGroup[] = [
       { id: "deptManage", label: "부서 관리", path: "/departments", anyOfPermissions: ["DEPARTMENT_MANAGE"] },
       {
         id: "rankManage",
-        label: "직급/직책 관리",
+        label: "직급관리",
         path: "/reference",
         anyOfPermissions: ["JOB_CODE_MANAGE"],
       },
-      { id: "roleManage", label: "역할/권한 관리", path: "/roles", anyOfPermissions: ["ROLE_MANAGE"] },
+      { id: "roleManage", label: "권한관리", path: "/roles", anyOfPermissions: ["ROLE_MANAGE"] },
+      {
+        id: "pwReset",
+        label: "비밀번호 재설정 승인",
+        path: "/password-resets",
+        anyOfPermissions: ["EMPLOYEE_APPROVE"],
+      },
     ],
   },
 ];

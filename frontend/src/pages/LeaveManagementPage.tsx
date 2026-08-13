@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api/client";
 import { Modal } from "../components/Modal";
+import { useAuth } from "../auth/AuthContext";
 import type { LeaveBalance, LeaveRequest } from "../types";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -20,9 +21,11 @@ function calcInclusiveDays(start: string, end: string): number | null {
 }
 
 export function LeaveManagementPage() {
+  const { currentUser } = useAuth();
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [showApplyModal, setShowApplyModal] = useState(false);
+  const [showBasisModal, setShowBasisModal] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [days, setDays] = useState("");
@@ -93,27 +96,32 @@ export function LeaveManagementPage() {
       </p>
 
       <div className="toolbar">
+        <button type="button" onClick={() => setShowBasisModal(true)}>
+          연차산출근거
+        </button>
         <button type="button" className="toolbar-end" onClick={() => setShowApplyModal(true)}>
           연차 신청
         </button>
       </div>
 
       <div className="card">
-        <h3>연차 현황</h3>
-        <div className="leave-stats">
-          <div className="leave-stat">
-            <span className="leave-stat-label">총 연차</span>
-            <span className="leave-stat-value">{totalDays}일</span>
-          </div>
-          <div className="leave-stat">
-            <span className="leave-stat-label">사용 연차</span>
-            <span className="leave-stat-value">{usedDays}일</span>
-          </div>
-          <div className="leave-stat">
-            <span className="leave-stat-label">잔여 연차</span>
-            <span className="leave-stat-value">{remainingDays}일</span>
-          </div>
-        </div>
+        <h3>{currentYear}년 연차 현황</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>발생</th>
+              <th>사용</th>
+              <th>잔여</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{totalDays}</td>
+              <td>{usedDays}</td>
+              <td>{remainingDays}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <div className="card">
@@ -195,6 +203,42 @@ export function LeaveManagementPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </Modal>
+      )}
+
+      {showBasisModal && (
+        <Modal onClose={() => setShowBasisModal(false)}>
+          <div className="card">
+            <h3>연차산출근거</h3>
+            <p className="hint">근로기준법 제60조를 기준으로 자동 계산됩니다.</p>
+
+            <h4>입사 1년 미만</h4>
+            <p>매월 만근 시 1일씩 발생(최대 11일) — 제60조 제2항</p>
+
+            <h4>입사 1년 이상 (회계연도 기준)</h4>
+            <p>
+              매년 1월 1일에 15일 부여, 3년차부터 근속 2년마다 1일씩 가산(최대 25일) — 제60조
+              제1항·제4항
+            </p>
+            <p>입사 후 첫 회계연도는 재직일수에 비례해 계산: 15일 × 재직일수 / 365일</p>
+
+            <p className="hint">
+              현재는 실제 출근 기록이 없어 재직 중이면 만근으로 간주합니다. 근태관리(출근/퇴근)
+              기능이 추가되면 실제 출근율 기준으로 대체될 예정입니다.
+            </p>
+
+            {currentUser && (
+              <p>
+                <b>내 입사일</b> {currentUser.hireDate}
+              </p>
+            )}
+
+            <div className="form-actions">
+              <button type="button" onClick={() => setShowBasisModal(false)}>
+                닫기
+              </button>
+            </div>
           </div>
         </Modal>
       )}

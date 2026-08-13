@@ -729,27 +729,6 @@ button[type="submit"] {
   margin-bottom: 12px;
 }
 
-.leave-stats {
-  display: flex;
-  gap: 24px;
-}
-
-.leave-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.leave-stat-label {
-  font-size: 0.9rem;
-  font-weight: bold;
-}
-
-.leave-stat-value {
-  font-size: 0.9rem;
-  font-weight: normal;
-}
-
 .calendar-table {
   width: 100%;
   table-layout: fixed;

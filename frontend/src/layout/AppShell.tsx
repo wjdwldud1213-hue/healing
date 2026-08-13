@@ -45,8 +45,8 @@ function ChevronIcon({ className }: { className?: string }) {
 function PinIcon({ filled }: { filled: boolean }) {
   return (
     <svg
-      width="15"
-      height="15"
+      width="12"
+      height="12"
       viewBox="0 0 24 24"
       fill={filled ? "currentColor" : "none"}
       stroke="currentColor"
@@ -56,15 +56,6 @@ function PinIcon({ filled }: { filled: boolean }) {
     >
       <path d="M12 17v5" />
       <path d="M9 3h6l-1 6 3 3v2H7v-2l3-3-1-6z" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   );
 }
@@ -280,26 +271,15 @@ export function AppShell() {
           <div className={`submenu-panel${panelVisible ? " panel-open" : ""}`}>
             <div className="submenu-panel-inner">
               <div className="submenu-panel-head">
-                <span className="submenu-panel-head-label">메뉴</span>
-                <div className="submenu-panel-head-actions">
-                  <button
-                    type="button"
-                    className={`panel-action-btn${pinned ? " active" : ""}`}
-                    aria-pressed={pinned}
-                    aria-label={pinned ? "패널 고정 해제" : "패널 고정"}
-                    onClick={() => setPinned((v) => !v)}
-                  >
-                    <PinIcon filled={pinned} />
-                  </button>
-                  <button
-                    type="button"
-                    className="panel-action-btn"
-                    aria-label="패널 숨기기"
-                    onClick={closePanel}
-                  >
-                    <CloseIcon />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className={`panel-action-btn${pinned ? " active" : ""}`}
+                  aria-pressed={pinned}
+                  aria-label={pinned ? "패널 고정 해제" : "패널 고정"}
+                  onClick={() => setPinned((v) => !v)}
+                >
+                  <PinIcon filled={pinned} />
+                </button>
               </div>
               {visibleMenu.map((group) => (
                 <MenuGroupAccordion

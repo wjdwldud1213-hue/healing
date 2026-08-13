@@ -369,44 +369,29 @@ body {
 .submenu-panel-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 4px 6px 12px;
   margin-bottom: 6px;
   border-bottom: 1px solid var(--border-soft);
 }
 
-.submenu-panel-head-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--text-sub);
-  text-transform: uppercase;
-}
-
-.submenu-panel-head-actions {
-  display: flex;
-  gap: 2px;
-}
-
 .panel-action-btn {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: none;
   border: none;
-  border-radius: 7px;
-  color: var(--text-sub);
+  border-radius: 6px;
+  color: var(--accent-rust);
   cursor: pointer;
 }
 .panel-action-btn:hover {
   background: var(--notice-bg);
-  color: var(--text-main);
 }
 .panel-action-btn.active {
   background: rgba(182, 93, 34, 0.12);
-  color: var(--accent-rust);
 }
 
 .menu-group + .menu-group {

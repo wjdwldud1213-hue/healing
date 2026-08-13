@@ -86,16 +86,17 @@ export function LeaveManagementPage() {
 
   return (
     <section>
-      <div className="section-header">
-        <h2>연차 관리</h2>
-        <button type="button" className="toolbar-end" onClick={() => setShowApplyModal(true)}>
-          연차 신청
-        </button>
-      </div>
+      <h2>연차 관리</h2>
       <p className="hint">
         본인의 연차 현황과 신청 내역만 조회할 수 있습니다. 신청한 연차는 승인 대기 상태로
         등록되며, 관리자 승인 후 반영됩니다.
       </p>
+
+      <div className="toolbar">
+        <button type="button" className="toolbar-end" onClick={() => setShowApplyModal(true)}>
+          연차 신청
+        </button>
+      </div>
 
       <div className="card">
         <h3>연차 현황</h3>

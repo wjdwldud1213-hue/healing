@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import { Modal } from "../components/Modal";
-import type { AttendanceLog, LeaveBalance, LeaveRequest } from "../types";
+import { useAuth } from "../auth/AuthContext";
+import type { AttendanceLog, Employee, LeaveBalance, LeaveRequest } from "../types";
 
 // 달력 한 칸(날짜)에 여러 종류의 기록이 동시에 들어갈 수 있도록 배열로 둔다.
 type DayRecordType = "LEAVE_APPROVED" | "LEAVE_PENDING" | "ATTENDANCE";
@@ -99,6 +100,9 @@ function eachDateInRange(startDate: string, endDate: string): string[] {
 const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 export function AttendanceHistoryPage() {
+  const { currentUser } = useAuth();
+  const canViewOthers = currentUser?.permissions?.includes("ATTENDANCE_MANAGE") ?? false;
+
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth() + 1); // 1~12
@@ -107,30 +111,46 @@ export function AttendanceHistoryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(currentUser?.employeeId ?? "");
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // 관리자(ATTENDANCE_MANAGE)만 "직원 선택" 드롭다운을 쓸 수 있어서, 그 경우에만 전체 직원 목록을 불러온다.
   useEffect(() => {
-    api.get<LeaveRequest[]>("/leave/requests").then(setRequests).catch((e) => setError(e.message));
-    api.get<LeaveBalance[]>("/leave/balance").then(setBalances).catch((e) => setError(e.message));
-  }, []);
+    if (!canViewOthers) return;
+    api.get<Employee[]>("/employees").then(setEmployees).catch((e) => setError(e.message));
+  }, [canViewOthers]);
+
+  useEffect(() => {
+    if (!selectedEmployeeId) return;
+    api
+      .get<LeaveRequest[]>(`/leave/requests?employeeId=${selectedEmployeeId}`)
+      .then(setRequests)
+      .catch((e) => setError(e.message));
+    api
+      .get<LeaveBalance[]>(`/leave/balance?employeeId=${selectedEmployeeId}`)
+      .then(setBalances)
+      .catch((e) => setError(e.message));
+  }, [selectedEmployeeId]);
 
   // 달력에 보이는 달(전후 하루 여유 — KST 변환 시 자정 근처 기록이 밀리는 것 방지) 범위만큼만 조회한다.
   useEffect(() => {
+    if (!selectedEmployeeId) return;
     const from = new Date(Date.UTC(viewYear, viewMonth - 1, 1));
     from.setUTCDate(from.getUTCDate() - 1);
     const to = new Date(Date.UTC(viewYear, viewMonth, 0));
     to.setUTCDate(to.getUTCDate() + 1);
     api
       .get<AttendanceLog[]>(
-        `/attendance/logs?from=${from.toISOString().slice(0, 10)}&to=${to.toISOString().slice(0, 10)}`,
+        `/attendance/logs?employeeId=${selectedEmployeeId}&from=${from.toISOString().slice(0, 10)}&to=${to.toISOString().slice(0, 10)}`,
       )
       .then(setAttendanceLogs)
       .catch((e) => setError(e.message));
-  }, [viewYear, viewMonth]);
+  }, [viewYear, viewMonth, selectedEmployeeId]);
 
   // 날짜(YYYY-MM-DD) -> 그 날의 기록 목록. 연차는 신청 기간을 하루씩 펼치고, 출퇴근은 출근일(KST 기준) 하루에 표시한다.
   const recordsByDate = useMemo(() => {
@@ -232,8 +252,31 @@ export function AttendanceHistoryPage() {
       <h2>근태내역조회</h2>
       <p className="hint">날짜별 연차 사용/신청 내역과 출퇴근 기록을 달력으로 확인합니다.</p>
 
+      {canViewOthers && (
+        <div className="toolbar">
+          <label>
+            직원 선택
+            <select value={selectedEmployeeId} onChange={(e) => setSelectedEmployeeId(e.target.value)}>
+              {currentUser && <option value={currentUser.employeeId}>{currentUser.name} (본인)</option>}
+              {employees
+                .filter((emp) => emp.employeeId !== currentUser?.employeeId)
+                .map((emp) => (
+                  <option key={emp.employeeId} value={emp.employeeId}>
+                    {emp.name} ({emp.employeeId})
+                  </option>
+                ))}
+            </select>
+          </label>
+        </div>
+      )}
+
       <div className="card">
-        <h3>{viewYear}년 {viewMonth}월 연차 현황</h3>
+        <h3>
+          {viewYear}년 {viewMonth}월 연차 현황
+          {canViewOthers && selectedEmployeeId !== currentUser?.employeeId && (
+            <> — {employees.find((emp) => emp.employeeId === selectedEmployeeId)?.name ?? selectedEmployeeId}</>
+          )}
+        </h3>
         <table>
           <thead>
             <tr>

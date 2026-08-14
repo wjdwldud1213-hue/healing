@@ -1,21 +1,32 @@
 import { Hono } from "hono";
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "../lib/db";
-import { employeeLeaveBalances, leaveGrants, leaveRequests } from "../db/schema";
+import { employeeLeaveBalances, employees, leaveGrants, leaveRequests } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { requirePermission } from "../middleware/permission";
+import { getPermissionCodes } from "../lib/permissions";
 import { runLeaveAccrualBatch } from "../lib/leaveAccrual";
 import { LeaveApprovalError, approveLeaveRequest, rejectLeaveRequest } from "../lib/leaveApproval";
+import type { Db } from "../lib/db";
 import type { AppEnv } from "../types";
 
-// 연차는 전부 "본인 것만" 다룬다 — 다른 직원 것은 이 라우트로 조회/신청할 수 없으므로
-// 별도 권한 코드가 필요 없다(로그인만 하면 접근 가능, 마이페이지와 동일한 패턴).
+// 연차 신청/취소는 항상 "본인 것만" 다룬다. 조회(/balance, /requests)는 기본은 본인 것만이지만,
+// employeeId 쿼리 파라미터로 다른 직원 것을 볼 수 있다 — ATTENDANCE_MANAGE 권한(근태내역조회 관리자용)이
+// 있을 때만 허용하고, 없으면 파라미터를 무시하고 본인 것만 반환한다. attendance.ts의 /logs와 동일 패턴.
+async function resolveTargetEmployeeId(db: Db, callerId: string, requested: string | undefined) {
+  if (!requested || requested === callerId) return callerId;
+  const caller = await db.query.employees.findFirst({ where: eq(employees.employeeId, callerId) });
+  if (!caller) return callerId;
+  const codes = await getPermissionCodes(db, caller.roleId);
+  return codes.has("ATTENDANCE_MANAGE") ? requested : callerId;
+}
+
 export const leaveRoute = new Hono<AppEnv>();
 leaveRoute.use("*", requireAuth);
 
 leaveRoute.get("/balance", async (c) => {
-  const employeeId = c.get("currentUserId")!;
   const db = getDb(c.env.DB);
+  const employeeId = await resolveTargetEmployeeId(db, c.get("currentUserId")!, c.req.query("employeeId"));
   const rows = await db
     .select()
     .from(employeeLeaveBalances)
@@ -36,8 +47,8 @@ leaveRoute.get("/grants", async (c) => {
 });
 
 leaveRoute.get("/requests", async (c) => {
-  const employeeId = c.get("currentUserId")!;
   const db = getDb(c.env.DB);
+  const employeeId = await resolveTargetEmployeeId(db, c.get("currentUserId")!, c.req.query("employeeId"));
   const rows = await db
     .select()
     .from(leaveRequests)

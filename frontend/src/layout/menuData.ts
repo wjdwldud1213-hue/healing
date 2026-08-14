@@ -63,12 +63,6 @@ export const menuData: MenuGroup[] = [
       },
       { id: "roleManage", label: "권한 관리", path: "/roles", anyOfPermissions: ["ROLE_MANAGE"] },
       {
-        id: "pwReset",
-        label: "비밀번호 재설정 승인",
-        path: "/password-resets",
-        anyOfPermissions: ["EMPLOYEE_APPROVE"],
-      },
-      {
         id: "leaveApprove",
         label: "연차 승인",
         path: "/leave/admin",

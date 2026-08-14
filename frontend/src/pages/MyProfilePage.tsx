@@ -86,6 +86,13 @@ export function MyProfilePage() {
           <button type="submit">저장</button>
         </form>
       </div>
+      <div className="card">
+        <h3>카카오 계정 연동</h3>
+        <p className="hint">
+          비밀번호를 잊었을 때 관리자 승인 없이 본인이 직접 재설정하는 데 사용됩니다.
+        </p>
+        <p>{currentUser.kakaoUserId ? "연동됨" : "연동 안 됨"}</p>
+      </div>
     </section>
   );
 }

@@ -17,7 +17,6 @@ INSERT INTO roles (name, description) VALUES ('시스템관리자', '전체 직�
 INSERT INTO permissions (code, name, category) VALUES ('EMPLOYEE_READ_ALL', '전체 직원 조회', '인사관리');
 INSERT INTO permissions (code, name, category) VALUES ('EMPLOYEE_READ_DEPARTMENT', '소속 부서 직원 조회', '인사관리');
 INSERT INTO permissions (code, name, category) VALUES ('EMPLOYEE_WRITE', '직원 등록/수정/퇴사처리', '인사관리');
-INSERT INTO permissions (code, name, category) VALUES ('EMPLOYEE_APPROVE', '승인 (비밀번호 재설정 등)', '인사관리');
 INSERT INTO permissions (code, name, category) VALUES ('DEPARTMENT_MANAGE', '부서코드 관리', '기준정보');
 INSERT INTO permissions (code, name, category) VALUES ('JOB_CODE_MANAGE', '직급/직책 관리', '기준정보');
 INSERT INTO permissions (code, name, category) VALUES ('ROLE_MANAGE', '역할/권한 관리', '시스템관리');
@@ -25,13 +24,13 @@ INSERT INTO permissions (code, name, category) VALUES ('ROLE_MANAGE', '역할/�
 -- 역할별 권한 매핑
 INSERT INTO role_permissions (role_id, permission_id)
   SELECT (SELECT id FROM roles WHERE name = '부서관리자'), id
-  FROM permissions WHERE code IN ('EMPLOYEE_READ_DEPARTMENT', 'EMPLOYEE_APPROVE');
+  FROM permissions WHERE code IN ('EMPLOYEE_READ_DEPARTMENT');
 
 INSERT INTO role_permissions (role_id, permission_id)
   SELECT (SELECT id FROM roles WHERE name = '시스템관리자'), id
   FROM permissions
   WHERE code IN (
-    'EMPLOYEE_READ_ALL', 'EMPLOYEE_WRITE', 'EMPLOYEE_APPROVE',
+    'EMPLOYEE_READ_ALL', 'EMPLOYEE_WRITE',
     'DEPARTMENT_MANAGE', 'JOB_CODE_MANAGE', 'ROLE_MANAGE'
   );
 

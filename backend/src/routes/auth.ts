@@ -3,16 +3,15 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { getDb } from "../lib/db";
-import { generateTempPassword } from "../lib/employeeId";
 import { getPermissionCodes } from "../lib/permissions";
-import { employees, passwordResetRequests, sessions } from "../db/schema";
+import { buildKakaoAuthorizeUrl, exchangeKakaoCodeForUserId } from "../lib/kakaoOAuth";
+import { employees, passwordResetTokens, sessions } from "../db/schema";
 import {
   requireAuth,
   SESSION_COOKIE,
   REMEMBER_ME_SESSION_SECONDS,
   DEFAULT_SESSION_SECONDS,
 } from "../middleware/auth";
-import { requirePermission } from "../middleware/permission";
 import type { AppEnv } from "../types";
 
 export const authRoute = new Hono<AppEnv>();
@@ -121,72 +120,120 @@ authRoute.post("/change-password", requireAuth, async (c) => {
   return c.json({ ok: true });
 });
 
-// ── 비밀번호 재설정 (이메일이 없으므로 관리자 승인 방식의 기초 버전) ──
-authRoute.post("/password-reset-requests", async (c) => {
+// ── 카카오 계정 연동 기반 셀프 비밀번호 재설정 ──
+// client_id(=KAKAO_REST_API_KEY)는 URL에 그대로 노출되는 값이라 인증 없이 내줘도 무방하다.
+authRoute.get("/kakao/authorize-url", async (c) => {
+  const redirectUri = c.req.query("redirectUri");
+  if (!redirectUri) return c.json({ error: "redirectUri가 필요합니다." }, 400);
+  return c.json({ url: buildKakaoAuthorizeUrl(c.env.KAKAO_REST_API_KEY, redirectUri) });
+});
+
+// 로그인한 본인 계정에 카카오 계정을 연동한다 (마이페이지/로그인 직후 강제 화면에서 호출).
+authRoute.post("/kakao/link", requireAuth, async (c) => {
   const body = await c.req
-    .json<{ employeeId?: string; mobilePhone?: string }>()
-    .catch(() => ({}) as { employeeId?: string; mobilePhone?: string });
-  const employeeId = (body.employeeId ?? "").trim().toUpperCase();
-  const mobilePhone = (body.mobilePhone ?? "").trim();
+    .json<{ code?: string; redirectUri?: string }>()
+    .catch(() => ({}) as { code?: string; redirectUri?: string });
+  const code = body.code ?? "";
+  const redirectUri = body.redirectUri ?? "";
+  if (!code || !redirectUri) return c.json({ error: "잘못된 요청입니다." }, 400);
 
-  const invalid = () => c.json({ error: "사번 또는 휴대폰번호가 일치하지 않습니다." }, 400);
-  if (!employeeId || !mobilePhone) return invalid();
-
-  const db = getDb(c.env.DB);
-  const employee = await db.query.employees.findFirst({ where: eq(employees.employeeId, employeeId) });
-  if (!employee || employee.employmentStatus === "RESIGNED" || employee.mobilePhone !== mobilePhone) {
-    return invalid();
+  let kakaoUserId: string;
+  try {
+    kakaoUserId = await exchangeKakaoCodeForUserId(
+      c.env.KAKAO_REST_API_KEY,
+      c.env.KAKAO_LOGIN_CLIENT_SECRET,
+      code,
+      redirectUri,
+    );
+  } catch {
+    return c.json({ error: "카카오 인증에 실패했습니다. 다시 시도해주세요." }, 400);
   }
 
-  await db.insert(passwordResetRequests).values({ employeeId });
-  return c.json({ message: "요청이 접수되었습니다. 관리자 승인 후 임시 비밀번호가 발급됩니다." }, 201);
-});
-
-authRoute.get("/password-reset-requests", requireAuth, requirePermission("EMPLOYEE_APPROVE"), async (c) => {
   const db = getDb(c.env.DB);
-  const rows = await db.query.passwordResetRequests.findMany({
-    where: eq(passwordResetRequests.status, "PENDING"),
-    orderBy: (r, { asc }) => [asc(r.requestedAt)],
-  });
-  return c.json(rows);
-});
+  const employeeId = c.get("currentUserId")!;
 
-authRoute.post("/password-reset-requests/:id/approve", requireAuth, requirePermission("EMPLOYEE_APPROVE"), async (c) => {
-  const id = Number(c.req.param("id"));
-  const db = getDb(c.env.DB);
-  const request = await db.query.passwordResetRequests.findFirst({
-    where: eq(passwordResetRequests.id, id),
+  const existing = await db.query.employees.findFirst({
+    where: eq(employees.kakaoUserId, kakaoUserId),
   });
-  if (!request || request.status !== "PENDING") {
-    return c.json({ error: "처리할 수 없는 요청입니다." }, 400);
+  if (existing && existing.employeeId !== employeeId) {
+    return c.json({ error: "이미 다른 계정에 연동된 카카오 계정입니다." }, 400);
   }
 
-  const tempPassword = generateTempPassword();
-  const passwordHash = await bcrypt.hash(tempPassword, 10);
-  const actorId = c.get("currentUserId");
+  await db
+    .update(employees)
+    .set({ kakaoUserId, updatedAt: new Date().toISOString() })
+    .where(eq(employees.employeeId, employeeId));
+
+  return c.json({ ok: true });
+});
+
+// 비로그인 상태 — 카카오 인증만으로 본인 확인 후 단기 재설정 토큰을 발급한다.
+authRoute.post("/kakao/reset-verify", async (c) => {
+  const body = await c.req
+    .json<{ code?: string; redirectUri?: string }>()
+    .catch(() => ({}) as { code?: string; redirectUri?: string });
+  const code = body.code ?? "";
+  const redirectUri = body.redirectUri ?? "";
+
+  const invalid = () =>
+    c.json({ error: "연동된 계정을 찾을 수 없습니다. 먼저 마이페이지에서 카카오 계정을 연동해주세요." }, 400);
+  if (!code || !redirectUri) return invalid();
+
+  let kakaoUserId: string;
+  try {
+    kakaoUserId = await exchangeKakaoCodeForUserId(
+      c.env.KAKAO_REST_API_KEY,
+      c.env.KAKAO_LOGIN_CLIENT_SECRET,
+      code,
+      redirectUri,
+    );
+  } catch {
+    return c.json({ error: "카카오 인증에 실패했습니다. 다시 시도해주세요." }, 400);
+  }
+
+  const db = getDb(c.env.DB);
+  const employee = await db.query.employees.findFirst({
+    where: eq(employees.kakaoUserId, kakaoUserId),
+  });
+  if (!employee || employee.employmentStatus === "RESIGNED") return invalid();
+
+  const token = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  await db.insert(passwordResetTokens).values({ employeeId: employee.employeeId, token, expiresAt });
+
+  return c.json({ resetToken: token, employeeId: employee.employeeId, name: employee.name });
+});
+
+// 재설정 토큰 + 새 비밀번호로 실제 비밀번호를 변경한다. 본인이 직접 정하는 것이므로
+// (임시 비밀번호가 아니라) mustChangePassword를 강제하지 않는다.
+authRoute.post("/kakao/reset-complete", async (c) => {
+  const body = await c.req
+    .json<{ resetToken?: string; newPassword?: string }>()
+    .catch(() => ({}) as { resetToken?: string; newPassword?: string });
+  const resetToken = body.resetToken ?? "";
+  const newPassword = body.newPassword ?? "";
+
+  const invalid = () => c.json({ error: "인증이 만료되었습니다. 처음부터 다시 시도해주세요." }, 400);
+  if (!resetToken) return invalid();
+  if (newPassword.length < 8) {
+    return c.json({ error: "새 비밀번호는 8자 이상이어야 합니다." }, 400);
+  }
+
+  const db = getDb(c.env.DB);
+  const row = await db.query.passwordResetTokens.findFirst({
+    where: eq(passwordResetTokens.token, resetToken),
+  });
+  if (!row || row.usedAt || new Date(row.expiresAt).getTime() < Date.now()) return invalid();
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
   const now = new Date().toISOString();
-
   await db.batch([
     db
       .update(employees)
-      .set({ passwordHash, mustChangePassword: true, updatedAt: now, updatedBy: actorId })
-      .where(eq(employees.employeeId, request.employeeId)),
-    db
-      .update(passwordResetRequests)
-      .set({ status: "APPROVED", approvedBy: actorId, approvedAt: now })
-      .where(eq(passwordResetRequests.id, id)),
+      .set({ passwordHash, mustChangePassword: false, updatedAt: now })
+      .where(eq(employees.employeeId, row.employeeId)),
+    db.update(passwordResetTokens).set({ usedAt: now }).where(eq(passwordResetTokens.id, row.id)),
   ]);
 
-  return c.json({ employeeId: request.employeeId, tempPassword });
-});
-
-authRoute.post("/password-reset-requests/:id/reject", requireAuth, requirePermission("EMPLOYEE_APPROVE"), async (c) => {
-  const id = Number(c.req.param("id"));
-  const db = getDb(c.env.DB);
-  const actorId = c.get("currentUserId");
-  await db
-    .update(passwordResetRequests)
-    .set({ status: "REJECTED", approvedBy: actorId, approvedAt: new Date().toISOString() })
-    .where(eq(passwordResetRequests.id, id));
   return c.json({ ok: true });
 });

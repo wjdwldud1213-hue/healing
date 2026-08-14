@@ -6,12 +6,14 @@ import { AppShell } from "./layout/AppShell";
 import { LoginPage } from "./pages/LoginPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { KakaoLinkPage } from "./pages/KakaoLinkPage";
+import { KakaoLinkCallbackPage } from "./pages/KakaoLinkCallbackPage";
+import { KakaoResetCallbackPage } from "./pages/KakaoResetCallbackPage";
 import { HomePage } from "./pages/HomePage";
 import { ComingSoonPage } from "./pages/ComingSoonPage";
 import { DepartmentsPage } from "./pages/DepartmentsPage";
 import { EmployeesPage } from "./pages/EmployeesPage";
 import { ReferenceDataPage } from "./pages/ReferenceDataPage";
-import { AdminPasswordResetsPage } from "./pages/AdminPasswordResetsPage";
 import { RolesPage } from "./pages/RolesPage";
 import { MyProfilePage } from "./pages/MyProfilePage";
 import { LeaveManagementPage } from "./pages/LeaveManagementPage";
@@ -29,6 +31,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/kakao/reset-callback" element={<KakaoResetCallbackPage />} />
 
           <Route element={<RequireAuth />}>
             <Route element={<AppShell />}>
@@ -38,6 +41,8 @@ export default function App() {
               <Route path="/attendance-history" element={<AttendanceHistoryPage />} />
               <Route path="/attendance/clock" element={<AttendanceClockPage />} />
               <Route path="/change-password" element={<ChangePasswordPage />} />
+              <Route path="/link-kakao" element={<KakaoLinkPage />} />
+              <Route path="/kakao/link-callback" element={<KakaoLinkCallbackPage />} />
               <Route path="/coming-soon/:feature" element={<ComingSoonPage />} />
 
               <Route element={<RequirePermission anyOf={CAN_VIEW_EMPLOYEE_LIST} />}>
@@ -48,9 +53,6 @@ export default function App() {
               </Route>
               <Route element={<RequirePermission anyOf={["JOB_CODE_MANAGE"]} />}>
                 <Route path="/reference" element={<ReferenceDataPage />} />
-              </Route>
-              <Route element={<RequirePermission anyOf={["EMPLOYEE_APPROVE"]} />}>
-                <Route path="/password-resets" element={<AdminPasswordResetsPage />} />
               </Route>
               <Route element={<RequirePermission anyOf={["ROLE_MANAGE"]} />}>
                 <Route path="/roles" element={<RolesPage />} />

@@ -104,6 +104,9 @@ export const employees = sqliteTable(
     mobilePhone: text("mobile_phone").notNull(),
     extensionNumber: text("extension_number"),
     address: text("address"),
+    // 셀프 비밀번호 재설정용 카카오 계정 연동. 한 카카오 계정은 한 직원에만 연동되며(unique),
+    // 이 값이 없으면 RequireAuth가 /link-kakao로 강제 이동시킨다.
+    kakaoUserId: text("kakao_user_id").unique(),
     passwordHash: text("password_hash").notNull(),
     mustChangePassword: integer("must_change_password", { mode: "boolean" })
       .notNull()
@@ -318,6 +321,8 @@ export const sessions = sqliteTable("sessions", {
   revokedAt: text("revoked_at"),
 });
 
+// 관리자 승인 방식(레거시)의 이력 테이블. 카카오 연동 셀프 재설정으로 전환한 뒤로는
+// 더 이상 새로 쓰지 않지만, 과거 이력 보존을 위해 테이블/스키마 정의는 그대로 남겨둔다.
 export const passwordResetRequests = sqliteTable(
   "password_reset_requests",
   {
@@ -339,6 +344,19 @@ export const passwordResetRequests = sqliteTable(
     ),
   ],
 );
+
+// 카카오 계정으로 본인확인이 끝난 뒤 발급되는 1회용 단기 토큰. 이 토큰이 있어야
+// 실제 비밀번호를 바꿀 수 있다(카카오 인증 -> 토큰 발급 -> 토큰+새 비밀번호로 변경, 2단계 분리).
+export const passwordResetTokens = sqliteTable("password_reset_tokens", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  employeeId: text("employee_id")
+    .notNull()
+    .references(() => employees.employeeId),
+  token: text("token").notNull().unique(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
 
 // ── 관계 (조회 편의용) ────────────────────────────────
 export const departmentsRelations = relations(departments, ({ many }) => ({
@@ -377,6 +395,7 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
   leaveRequests: many(leaveRequests),
   sessions: many(sessions),
   attendanceLogs: many(attendanceLogs),
+  passwordResetTokens: many(passwordResetTokens),
 }));
 
 export const workPlacesRelations = relations(workPlaces, ({ many }) => ({
@@ -448,4 +467,11 @@ export const leaveRequestsRelations = relations(leaveRequests, ({ one }) => ({
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
   employee: one(employees, { fields: [sessions.employeeId], references: [employees.employeeId] }),
+}));
+
+export const passwordResetTokensRelations = relations(passwordResetTokens, ({ one }) => ({
+  employee: one(employees, {
+    fields: [passwordResetTokens.employeeId],
+    references: [employees.employeeId],
+  }),
 }));

@@ -2,3 +2,7 @@
 # work_places 주소 등록 시 지오코딩(주소 -> 좌표 변환)에 쓰인다.
 # 이 파일을 .dev.vars로 복사한 뒤 실제 값을 채워 넣는다 (.dev.vars는 git에 커밋되지 않음).
 KAKAO_REST_API_KEY=
+
+# 카카오 로그인(비밀번호 재설정용 계정 연동)의 Client Secret. 같은 카카오 앱에서
+# "카카오 로그인" 제품의 보안 탭에 발급한다. Client ID는 KAKAO_REST_API_KEY를 재사용한다.
+KAKAO_LOGIN_CLIENT_SECRET=

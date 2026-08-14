@@ -42,6 +42,7 @@ export type Employee = {
   mobilePhone: string;
   extensionNumber: string | null;
   address: string | null;
+  kakaoUserId: string | null;
   mustChangePassword: boolean;
   roleId: number;
   createdAt: string;

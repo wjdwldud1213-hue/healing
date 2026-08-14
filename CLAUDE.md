@@ -102,7 +102,17 @@ frontend/src/
 
 ## 현재 작업 진행 상황 (수동 갱신 섹션)
 
-> 기준: 2026-08-14. 휴대폰번호/내선번호 초기값(기존 저장값) 자동 하이픈 포맷(커밋 `10bcf14`)까지 커밋·push·운영/테스트 양쪽 배포 완료. **워킹트리 깨끗함 — 이 작업 관련 미커밋 변경 없음.** **미완료 항목: `KAKAO_REST_API_KEY` 테스트 환경 시크릿을 사용자가 아직 등록하지 않음** — `wrangler secret put KAKAO_REST_API_KEY --env test`를 backend 디렉터리에서 직접 실행해야 근무지 등록(지오코딩) 기능이 테스트 환경에서도 동작함. 그 외 기능은 이미 정상 동작.
+> 기준: 2026-08-14. 휴대폰번호/내선번호 초기값(기존 저장값) 자동 하이픈 포맷(커밋 `10bcf14`)까지 커밋·push·운영/테스트 양쪽 배포 완료. **워킹트리 깨끗함 — 미커밋 변경 없음.**
+>
+> **다음 작업(계획만 확정, 코드 미착수): 비밀번호 재설정을 관리자 승인 방식에서 카카오 계정 연동 기반 셀프 재설정으로 전환.** 논의 결과:
+> - 관리자 승인 플로우(`POST/GET /password-reset-requests*`, `AdminPasswordResetsPage.tsx`, `EMPLOYEE_APPROVE` 권한)는 완전히 제거하고 카카오 인증으로 일원화하기로 함.
+> - SMS/이메일 인증은 비용·사전 준비(사업자 등록, 발신번호 등록 등)가 커서 배제하고, **카카오 계정 연동(OAuth)** 방식으로 확정 — 기존 지오코딩용 카카오 앱에 "카카오 로그인" 제품만 추가로 켜면 되고 전화번호/이메일 스코프가 필요 없어 카카오 측 별도 심사 불필요.
+> - 아직 카카오 연동을 안 한 직원은 다음 로그인 시 `mustChangePassword`와 동일한 패턴으로 연동을 강제(스킵 불가).
+> - DB 변경 예정: `employees.kakao_user_id`(unique, nullable) 컬럼 + 신규 `password_reset_tokens` 테이블(1회용 단기 토큰). 기존 `password_reset_requests` 테이블은 삭제하지 않고 이력만 보존.
+> - 신규 백엔드 라우트: `POST /auth/kakao/link`(로그인 중 연동), `POST /auth/kakao/reset-verify`(비로그인, 인가코드→재설정 토큰), `POST /auth/kakao/reset-complete`(토큰+새 비밀번호).
+> - 신규 프론트 화면: `/link-kakao`, `/kakao/link-callback`, `/kakao/reset-callback`, `ForgotPasswordPage.tsx` 전면 수정(사번/휴대폰번호 입력 제거 → "카카오로 인증하기" 버튼만).
+> - **사용자가 직접 해야 할 사전 준비(이게 끝나야 반영 재개)**: ① 카카오 디벨로퍼스에서 기존 앱에 "카카오 로그인" 제품 활성화, ② Redirect URI 6개 등록(`{로컬/테스트/운영}/kakao/link-callback`, `{로컬/테스트/운영}/kakao/reset-callback`), ③ Client Secret 발급 후 `wrangler secret put KAKAO_LOGIN_CLIENT_SECRET`을 운영·테스트 각각 실행 + 로컬 `.dev.vars`에도 추가.
+> - 사용자가 사전 준비를 마치고 다시 요청하면 위 설계대로 바로 구현 시작. **미완료 항목(기존)**: `KAKAO_REST_API_KEY` 테스트 환경 시크릿도 아직 미등록 — `wrangler secret put KAKAO_REST_API_KEY --env test`(근무지 등록 지오코딩용, 이번 카카오 로그인 시크릿과는 별개).
 
 ## 세션 시작/종료 규칙
 

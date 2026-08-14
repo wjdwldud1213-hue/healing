@@ -102,6 +102,7 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
       baseSalary?: number;
       initialLeaveDays?: number;
       employmentStatus?: string;
+      jobType?: string;
     }>()
     .catch(() => ({}) as Record<string, never>);
 
@@ -131,6 +132,9 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
     return c.json({ error: "연차일수는 0 이상이어야 합니다." }, 400);
   if (employmentStatus != null && employmentStatus !== "ACTIVE" && employmentStatus !== "LEAVE") {
     return c.json({ error: "등록 시 재직상태는 재직 또는 휴직만 선택할 수 있습니다." }, 400);
+  }
+  if (body.jobType != null && !["OFFICE", "DELIVERY", "SALES"].includes(body.jobType)) {
+    return c.json({ error: "직군은 사무직/배송직/영업직 중 하나여야 합니다." }, 400);
   }
 
   const db = getDb(c.env.DB);
@@ -173,6 +177,7 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
       extensionNumber: extensionNumber ?? null,
       address: address ?? null,
       employmentStatus: employmentStatus === "LEAVE" ? "LEAVE" : "ACTIVE",
+      jobType: (body.jobType as "OFFICE" | "DELIVERY" | "SALES" | undefined) ?? "OFFICE",
       passwordHash,
       mustChangePassword: true,
       roleId,
@@ -266,6 +271,9 @@ employeesRoute.patch("/:id", async (c) => {
   if (body.employmentStatus != null && body.employmentStatus !== "ACTIVE" && body.employmentStatus !== "LEAVE") {
     return c.json({ error: "재직상태는 재직 또는 휴직만 이 화면에서 변경할 수 있습니다." }, 400);
   }
+  if (body.jobType != null && !["OFFICE", "DELIVERY", "SALES"].includes(body.jobType as string)) {
+    return c.json({ error: "직군은 사무직/배송직/영업직 중 하나여야 합니다." }, 400);
+  }
 
   const updates: Record<string, unknown> = { updatedAt: new Date().toISOString(), updatedBy: actorId };
   if (typeof body.name === "string") updates.name = body.name.trim();
@@ -274,6 +282,7 @@ employeesRoute.patch("/:id", async (c) => {
   if (typeof body.mobilePhone === "string") updates.mobilePhone = body.mobilePhone.trim();
   if ("extensionNumber" in body) updates.extensionNumber = body.extensionNumber ?? null;
   if (typeof body.roleId === "number") updates.roleId = body.roleId;
+  if (typeof body.jobType === "string") updates.jobType = body.jobType;
   if (body.employmentStatus === "ACTIVE" || body.employmentStatus === "LEAVE") {
     updates.employmentStatus = body.employmentStatus;
     updates.statusChangedAt = new Date().toISOString();

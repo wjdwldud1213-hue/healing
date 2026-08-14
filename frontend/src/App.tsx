@@ -17,6 +17,8 @@ import { MyProfilePage } from "./pages/MyProfilePage";
 import { LeaveManagementPage } from "./pages/LeaveManagementPage";
 import { AdminLeaveRequestsPage } from "./pages/AdminLeaveRequestsPage";
 import { AttendanceHistoryPage } from "./pages/AttendanceHistoryPage";
+import { AttendanceClockPage } from "./pages/AttendanceClockPage";
+import { WorkPlacesPage } from "./pages/WorkPlacesPage";
 
 const CAN_VIEW_EMPLOYEE_LIST = ["EMPLOYEE_READ_ALL", "EMPLOYEE_READ_DEPARTMENT"];
 
@@ -34,6 +36,7 @@ export default function App() {
               <Route path="/my-profile" element={<MyProfilePage />} />
               <Route path="/leave" element={<LeaveManagementPage />} />
               <Route path="/attendance-history" element={<AttendanceHistoryPage />} />
+              <Route path="/attendance/clock" element={<AttendanceClockPage />} />
               <Route path="/change-password" element={<ChangePasswordPage />} />
               <Route path="/coming-soon/:feature" element={<ComingSoonPage />} />
 
@@ -54,6 +57,9 @@ export default function App() {
               </Route>
               <Route element={<RequirePermission anyOf={["LEAVE_APPROVE"]} />}>
                 <Route path="/leave/admin" element={<AdminLeaveRequestsPage />} />
+              </Route>
+              <Route element={<RequirePermission anyOf={["ATTENDANCE_MANAGE"]} />}>
+                <Route path="/work-places" element={<WorkPlacesPage />} />
               </Route>
             </Route>
           </Route>

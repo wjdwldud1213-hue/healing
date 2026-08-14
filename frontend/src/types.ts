@@ -27,6 +27,7 @@ export type Permission = {
 };
 
 export type EmploymentStatus = "ACTIVE" | "LEAVE" | "RESIGNED";
+export type JobType = "OFFICE" | "DELIVERY" | "SALES";
 
 export type Employee = {
   employeeId: string;
@@ -37,6 +38,7 @@ export type Employee = {
   hireDate: string;
   employmentStatus: EmploymentStatus;
   statusChangedAt: string;
+  jobType: JobType;
   mobilePhone: string;
   extensionNumber: string | null;
   address: string | null;
@@ -89,4 +91,44 @@ export type LeaveRequest = {
   requestedAt: string;
   decidedBy: string | null;
   decidedAt: string | null;
+};
+
+export type WorkPlace = {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  radiusM: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AttendanceStatus = "WORKING" | "DONE" | "PENDING_APPROVAL" | "REJECTED";
+export type AttendanceCheckType = "NORMAL" | "FIELD" | "MANUAL";
+export type AttendanceDeviceType = "WEB" | "IOS" | "ANDROID";
+
+export type AttendanceLog = {
+  id: number;
+  employeeId: string;
+  workPlaceId: number | null;
+  checkInAt: string;
+  checkOutAt: string | null;
+  checkInLat: number | null;
+  checkInLng: number | null;
+  checkOutLat: number | null;
+  checkOutLng: number | null;
+  checkInAccuracy: number | null;
+  checkOutAccuracy: number | null;
+  checkInIsMocked: boolean | null;
+  checkOutIsMocked: boolean | null;
+  checkInDeviceType: AttendanceDeviceType;
+  checkOutDeviceType: AttendanceDeviceType | null;
+  checkInType: AttendanceCheckType;
+  checkOutType: AttendanceCheckType | null;
+  status: AttendanceStatus;
+  reason: string | null;
+  approverId: string | null;
+  approvedAt: string | null;
+  createdAt: string;
 };

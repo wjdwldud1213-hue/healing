@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api/client";
-import type { Department, Employee, EmploymentStatus, JobGrade, Role } from "../types";
+import type { Department, Employee, EmploymentStatus, JobGrade, JobType, Role } from "../types";
+
+const JOB_TYPE_LABEL: Record<JobType, string> = {
+  OFFICE: "사무직",
+  DELIVERY: "배송직",
+  SALES: "영업직",
+};
 
 type Props = {
   mode: "create" | "edit";
@@ -24,6 +30,7 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
   const [mobilePhone, setMobilePhone] = useState(employee?.mobilePhone ?? "");
   const [extensionNumber, setExtensionNumber] = useState(employee?.extensionNumber ?? "");
   const [roleId, setRoleId] = useState(employee?.roleId ?? 0);
+  const [jobType, setJobType] = useState<JobType>(employee?.jobType ?? "OFFICE");
   const [address, setAddress] = useState(employee?.address ?? "");
   const [baseSalary, setBaseSalary] = useState("");
   const [initialLeaveDays, setInitialLeaveDays] = useState("");
@@ -58,6 +65,7 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
           mobilePhone,
           extensionNumber: extensionNumber || null,
           roleId,
+          jobType,
           address: address || null,
           baseSalary: baseSalary ? Number(baseSalary) : undefined,
           initialLeaveDays: initialLeaveDays ? Number(initialLeaveDays) : undefined,
@@ -75,6 +83,7 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
           mobilePhone,
           extensionNumber: extensionNumber || null,
           roleId,
+          jobType,
           ...(canEditStatus ? { employmentStatus } : {}),
         });
         onDone(updated);
@@ -140,6 +149,16 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
             {jobGrades.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          직군
+          <select value={jobType} onChange={(e) => setJobType(e.target.value as JobType)} required>
+            {(Object.keys(JOB_TYPE_LABEL) as JobType[]).map((jt) => (
+              <option key={jt} value={jt}>
+                {JOB_TYPE_LABEL[jt]}
               </option>
             ))}
           </select>

@@ -96,6 +96,11 @@ export const employees = sqliteTable(
       .notNull()
       .default("ACTIVE"),
     statusChangedAt: text("status_changed_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    // 출퇴근 처리 방식을 가른다: 사무직은 근무지 반경 검증, 배송직은 출근만 반경 검증(퇴근은 현장),
+    // 영업직은 출퇴근 모두 위치 제한 없음. lib/attendance.ts의 requiresRadiusCheck가 이 값을 사용한다.
+    jobType: text("job_type", { enum: ["OFFICE", "DELIVERY", "SALES"] })
+      .notNull()
+      .default("OFFICE"),
     mobilePhone: text("mobile_phone").notNull(),
     extensionNumber: text("extension_number"),
     address: text("address"),
@@ -117,6 +122,7 @@ export const employees = sqliteTable(
       "employees_employment_status_check",
       sql`${t.employmentStatus} IN ('ACTIVE', 'LEAVE', 'RESIGNED')`,
     ),
+    check("employees_job_type_check", sql`${t.jobType} IN ('OFFICE', 'DELIVERY', 'SALES')`),
   ],
 );
 
@@ -228,6 +234,72 @@ export const leaveRequests = sqliteTable(
   ],
 );
 
+// ── 근무지 (출퇴근 반경 검증 기준점, 다중 지점 대비) ──────
+export const workPlaces = sqliteTable("work_places", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  latitude: real("latitude").notNull(),
+  longitude: real("longitude").notNull(),
+  radiusM: integer("radius_m").notNull().default(100),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ── 출퇴근 기록 ──────────────────────────────────────
+// 체크인/체크아웃 정보를 한 행에 담는다(출근 시 insert, 퇴근 시 같은 행을 update).
+// reason/approverId/approvedAt과 status의 PENDING_APPROVAL/REJECTED, checkInType의 MANUAL은
+// 2단계(사무직 외근 예외신청/승인)에서 사용할 자리 — 1단계에서는 항상 NULL/미사용이다.
+export const attendanceLogs = sqliteTable(
+  "attendance_logs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    employeeId: text("employee_id")
+      .notNull()
+      .references(() => employees.employeeId),
+    workPlaceId: integer("work_place_id").references(() => workPlaces.id),
+    checkInAt: text("check_in_at").notNull(),
+    checkOutAt: text("check_out_at"),
+    checkInLat: real("check_in_lat"),
+    checkInLng: real("check_in_lng"),
+    checkOutLat: real("check_out_lat"),
+    checkOutLng: real("check_out_lng"),
+    checkInAccuracy: real("check_in_accuracy"),
+    checkOutAccuracy: real("check_out_accuracy"),
+    checkInIsMocked: integer("check_in_is_mocked", { mode: "boolean" }),
+    checkOutIsMocked: integer("check_out_is_mocked", { mode: "boolean" }),
+    checkInDeviceType: text("check_in_device_type", { enum: ["WEB", "IOS", "ANDROID"] }).notNull(),
+    checkOutDeviceType: text("check_out_device_type", { enum: ["WEB", "IOS", "ANDROID"] }),
+    checkInType: text("check_in_type", { enum: ["NORMAL", "FIELD", "MANUAL"] }).notNull(),
+    checkOutType: text("check_out_type", { enum: ["NORMAL", "FIELD", "MANUAL"] }),
+    status: text("status", { enum: ["WORKING", "DONE", "PENDING_APPROVAL", "REJECTED"] })
+      .notNull()
+      .default("WORKING"),
+    reason: text("reason"),
+    approverId: text("approver_id").references(() => employees.employeeId),
+    approvedAt: text("approved_at"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => [
+    // 동시에 두 건 이상 출근(WORKING) 상태를 가질 수 없도록 DB 레벨에서도 막는다.
+    uniqueIndex("attendance_logs_working_employee_idx")
+      .on(t.employeeId)
+      .where(sql`${t.status} = 'WORKING'`),
+    check(
+      "attendance_logs_status_check",
+      sql`${t.status} IN ('WORKING', 'DONE', 'PENDING_APPROVAL', 'REJECTED')`,
+    ),
+    check(
+      "attendance_logs_check_in_type_check",
+      sql`${t.checkInType} IN ('NORMAL', 'FIELD', 'MANUAL')`,
+    ),
+    check(
+      "attendance_logs_check_out_type_check",
+      sql`${t.checkOutType} IS NULL OR ${t.checkOutType} IN ('NORMAL', 'FIELD', 'MANUAL')`,
+    ),
+  ],
+);
+
 // ── 로그인 세션 / 비밀번호 재설정 ───────────────────────
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
@@ -302,6 +374,24 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
   leaveGrants: many(leaveGrants),
   leaveRequests: many(leaveRequests),
   sessions: many(sessions),
+  attendanceLogs: many(attendanceLogs),
+}));
+
+export const workPlacesRelations = relations(workPlaces, ({ many }) => ({
+  attendanceLogs: many(attendanceLogs),
+}));
+
+// approverId는 leaveRequests.decidedBy/createdBy와 동일하게 감사 목적의 참조 컬럼이라
+// employees 쪽에 반대 관계(many)를 두지 않는다 — relations()로 조인 조회하지 않고 필요할 때 직접 조회.
+export const attendanceLogsRelations = relations(attendanceLogs, ({ one }) => ({
+  employee: one(employees, {
+    fields: [attendanceLogs.employeeId],
+    references: [employees.employeeId],
+  }),
+  workPlace: one(workPlaces, {
+    fields: [attendanceLogs.workPlaceId],
+    references: [workPlaces.id],
+  }),
 }));
 
 export const employeeAssignmentHistoryRelations = relations(

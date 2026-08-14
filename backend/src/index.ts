@@ -8,6 +8,8 @@ import { rolesRoute } from "./routes/roles";
 import { permissionsRoute } from "./routes/permissions";
 import { authRoute } from "./routes/auth";
 import { leaveRoute } from "./routes/leave";
+import { workPlacesRoute } from "./routes/workPlaces";
+import { attendanceRoute } from "./routes/attendance";
 import { runLeaveAccrualBatch } from "./lib/leaveAccrual";
 import { getDb } from "./lib/db";
 import type { Bindings } from "./types";
@@ -43,6 +45,8 @@ app.route("/job-titles", jobTitlesRoute);
 app.route("/roles", rolesRoute);
 app.route("/permissions", permissionsRoute);
 app.route("/leave", leaveRoute);
+app.route("/work-places", workPlacesRoute);
+app.route("/attendance", attendanceRoute);
 
 export default {
   fetch: app.fetch,

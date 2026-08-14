@@ -1,18 +1,34 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import { Modal } from "../components/Modal";
-import type { LeaveBalance, LeaveRequest } from "../types";
+import type { AttendanceLog, LeaveBalance, LeaveRequest } from "../types";
 
-// 지금은 연차만 있지만, 출퇴근 기록이 생기면 여기에 타입을 추가하면 된다.
 // 달력 한 칸(날짜)에 여러 종류의 기록이 동시에 들어갈 수 있도록 배열로 둔다.
-type DayRecordType = "LEAVE_APPROVED" | "LEAVE_PENDING";
+type DayRecordType = "LEAVE_APPROVED" | "LEAVE_PENDING" | "ATTENDANCE";
 
 type DayRecord = {
   type: DayRecordType;
   label: string;
   detail: string | null;
-  request: LeaveRequest;
+  leaveRequest?: LeaveRequest;
+  attendanceLog?: AttendanceLog;
 };
+
+const ATTENDANCE_CHECK_TYPE_LABEL: Record<string, string> = {
+  NORMAL: "정상",
+  FIELD: "현장",
+  MANUAL: "수기",
+};
+
+// checkInAt/checkOutAt은 서버가 UTC ISO 문자열로 저장하므로, 자정 근처 KST 날짜/시각으로
+// 정확히 보여주기 위해 KST(UTC+9)로 변환한다.
+function toKstDateStr(iso: string): string {
+  return new Date(new Date(iso).getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+function toKstTimeStr(iso: string): string {
+  return new Date(new Date(iso).getTime() + 9 * 60 * 60 * 1000).toISOString().slice(11, 16);
+}
 
 const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -93,6 +109,7 @@ export function AttendanceHistoryPage() {
   );
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
+  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -101,7 +118,21 @@ export function AttendanceHistoryPage() {
     api.get<LeaveBalance[]>("/leave/balance").then(setBalances).catch((e) => setError(e.message));
   }, []);
 
-  // 날짜(YYYY-MM-DD) -> 그 날의 기록 목록. 연차만 있는 지금은 신청 기간을 하루씩 펼쳐서 채운다.
+  // 달력에 보이는 달(전후 하루 여유 — KST 변환 시 자정 근처 기록이 밀리는 것 방지) 범위만큼만 조회한다.
+  useEffect(() => {
+    const from = new Date(Date.UTC(viewYear, viewMonth - 1, 1));
+    from.setUTCDate(from.getUTCDate() - 1);
+    const to = new Date(Date.UTC(viewYear, viewMonth, 0));
+    to.setUTCDate(to.getUTCDate() + 1);
+    api
+      .get<AttendanceLog[]>(
+        `/attendance/logs?from=${from.toISOString().slice(0, 10)}&to=${to.toISOString().slice(0, 10)}`,
+      )
+      .then(setAttendanceLogs)
+      .catch((e) => setError(e.message));
+  }, [viewYear, viewMonth]);
+
+  // 날짜(YYYY-MM-DD) -> 그 날의 기록 목록. 연차는 신청 기간을 하루씩 펼치고, 출퇴근은 출근일(KST 기준) 하루에 표시한다.
   const recordsByDate = useMemo(() => {
     const map = new Map<string, DayRecord[]>();
     for (const req of requests) {
@@ -110,12 +141,22 @@ export function AttendanceHistoryPage() {
       const label = req.status === "APPROVED" ? "연차" : "연차(대기)";
       for (const dateStr of eachDateInRange(req.startDate, req.endDate)) {
         const list = map.get(dateStr) ?? [];
-        list.push({ type, label, detail: req.reason, request: req });
+        list.push({ type, label, detail: req.reason, leaveRequest: req });
         map.set(dateStr, list);
       }
     }
+    for (const log of attendanceLogs) {
+      const dateStr = toKstDateStr(log.checkInAt);
+      const checkInLabel = `출근 ${toKstTimeStr(log.checkInAt)}(${ATTENDANCE_CHECK_TYPE_LABEL[log.checkInType]})`;
+      const label = log.checkOutAt
+        ? `${checkInLabel} · 퇴근 ${toKstTimeStr(log.checkOutAt)}(${ATTENDANCE_CHECK_TYPE_LABEL[log.checkOutType ?? "NORMAL"]})`
+        : checkInLabel;
+      const list = map.get(dateStr) ?? [];
+      list.push({ type: "ATTENDANCE", label, detail: null, attendanceLog: log });
+      map.set(dateStr, list);
+    }
     return map;
-  }, [requests]);
+  }, [requests, attendanceLogs]);
 
   const balanceForYear = balances.find((b) => b.year === viewYear);
   const granted = balanceForYear ? balanceForYear.grantedDays + balanceForYear.carriedOverDays : 0;
@@ -189,10 +230,7 @@ export function AttendanceHistoryPage() {
   return (
     <section>
       <h2>근태내역조회</h2>
-      <p className="hint">
-        날짜별 근태 기록을 달력으로 확인합니다. 지금은 연차 사용/신청 내역만 표시되며, 출퇴근
-        기록이 추가되면 같은 달력에 함께 표시됩니다.
-      </p>
+      <p className="hint">날짜별 연차 사용/신청 내역과 출퇴근 기록을 달력으로 확인합니다.</p>
 
       <div className="card">
         <h3>{viewYear}년 {viewMonth}월 연차 현황</h3>
@@ -288,7 +326,13 @@ export function AttendanceHistoryPage() {
                       {dayRecords.map((r, idx) => (
                         <span
                           key={idx}
-                          className={`calendar-badge ${r.type === "LEAVE_APPROVED" ? "approved" : "pending"}`}
+                          className={`calendar-badge ${
+                            r.type === "LEAVE_APPROVED"
+                              ? "approved"
+                              : r.type === "LEAVE_PENDING"
+                                ? "pending"
+                                : "attendance"
+                          }`}
                         >
                           {r.label}
                         </span>
@@ -309,7 +353,13 @@ export function AttendanceHistoryPage() {
             {selectedRecords.length === 0 && <p className="hint">이 날짜에는 기록이 없습니다.</p>}
             {selectedRecords.map((r, idx) => (
               <p key={idx}>
-                <b>{r.label}</b> — {r.request.startDate} ~ {r.request.endDate} ({r.request.days}일)
+                <b>{r.label}</b>
+                {r.leaveRequest && (
+                  <>
+                    {" "}
+                    — {r.leaveRequest.startDate} ~ {r.leaveRequest.endDate} ({r.leaveRequest.days}일)
+                  </>
+                )}
                 {r.detail && <> / 사유: {r.detail}</>}
               </p>
             ))}

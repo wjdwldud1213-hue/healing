@@ -836,6 +836,10 @@ button[type="submit"] {
   background: var(--accent-amber);
 }
 
+.calendar-badge.attendance {
+  background: var(--accent);
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;

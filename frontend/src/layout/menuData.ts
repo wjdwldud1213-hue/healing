@@ -36,7 +36,7 @@ export const menuData: MenuGroup[] = [
     label: "근태관리",
     icon: '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>',
     children: [
-      { id: "clock", label: "출근/퇴근", path: "/coming-soon/clock", badge: null },
+      { id: "clock", label: "출근/퇴근", path: "/attendance/clock", badge: null },
       { id: "vacation", label: "연차 관리", path: "/leave", badge: null },
       { id: "attHistory", label: "근태내역조회", path: "/attendance-history", badge: null },
     ],
@@ -65,6 +65,12 @@ export const menuData: MenuGroup[] = [
         label: "연차 승인",
         path: "/leave/admin",
         anyOfPermissions: ["LEAVE_APPROVE"],
+      },
+      {
+        id: "workPlaceManage",
+        label: "근무지 관리",
+        path: "/work-places",
+        anyOfPermissions: ["ATTENDANCE_MANAGE"],
       },
     ],
   },

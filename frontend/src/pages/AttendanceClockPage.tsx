@@ -29,12 +29,16 @@ function haversineDistanceMeters(lat1: number, lng1: number, lat2: number, lng2:
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function checkInLabel(jobType: JobType) {
-  return jobType === "SALES" ? "현장출근" : "출근";
+// OFFICE/DELIVERY 출근은 반경이 필수라 항상 "출근"이지만, 반경이 필수가 아닌 경우(SALES 출퇴근,
+// DELIVERY 퇴근)는 실시간 반경 안/밖 여부에 따라 문구가 바뀐다 — 백엔드 checkIn/checkOut과 동일 판단.
+function checkInLabel(jobType: JobType, withinRadius: boolean) {
+  if (jobType !== "SALES") return "출근";
+  return withinRadius ? "출근" : "현장출근";
 }
 
-function checkOutLabel(jobType: JobType) {
-  return jobType === "OFFICE" ? "퇴근" : "현장퇴근";
+function checkOutLabel(jobType: JobType, withinRadius: boolean) {
+  if (jobType === "OFFICE") return "퇴근";
+  return withinRadius ? "퇴근" : "현장퇴근";
 }
 
 export function AttendanceClockPage() {
@@ -132,8 +136,10 @@ export function AttendanceClockPage() {
       <h2>출근/퇴근</h2>
       <p className="hint">
         {jobType === "OFFICE" && "지정된 근무지 100m 이내에서만 출근/퇴근할 수 있습니다."}
-        {jobType === "DELIVERY" && "출근은 지정된 근무지 100m 이내에서, 퇴근은 현장에서 바로 처리할 수 있습니다."}
-        {jobType === "SALES" && "위치와 관계없이 현장에서 바로 출근/퇴근할 수 있습니다."}
+        {jobType === "DELIVERY" &&
+          "출근은 지정된 근무지 100m 이내에서만 가능하고, 퇴근은 위치와 관계없이 가능합니다(근무지 반경 안이면 퇴근, 밖이면 현장퇴근으로 기록)."}
+        {jobType === "SALES" &&
+          "위치와 관계없이 출근/퇴근할 수 있습니다(근무지 반경 안이면 출근/퇴근, 밖이면 현장출근/현장퇴근으로 기록)."}
       </p>
 
       {positionError && <p className="error">{positionError}</p>}
@@ -149,24 +155,22 @@ export function AttendanceClockPage() {
           <p className="hint">현재 출근 상태가 아닙니다.</p>
         )}
 
-        {(checkInNeedsRadius && !isWorking) || (checkOutNeedsRadius && isWorking) ? (
-          <p className="hint">
-            {position
-              ? nearest
-                ? withinRadius
-                  ? `"${nearest.place.name}" 반경 이내입니다 (약 ${Math.round(nearest.distance)}m).`
-                  : `근무지까지 ${Math.round(nearest.distance)}m (반경 밖)`
-                : "등록된 근무지가 없습니다."
-              : "위치 정보를 확인하는 중..."}
-          </p>
-        ) : null}
+        <p className="hint">
+          {position
+            ? nearest
+              ? withinRadius
+                ? `"${nearest.place.name}" 반경 이내입니다 (약 ${Math.round(nearest.distance)}m).`
+                : `근무지까지 ${Math.round(nearest.distance)}m (반경 밖)`
+              : "등록된 근무지가 없습니다."
+            : "위치 정보를 확인하는 중..."}
+        </p>
 
         <div className="form-actions">
           <button type="button" disabled={!canCheckIn || loading} onClick={handleCheckIn}>
-            {checkInLabel(jobType)}
+            {checkInLabel(jobType, withinRadius)}
           </button>
           <button type="button" disabled={!canCheckOut || loading} onClick={handleCheckOut}>
-            {checkOutLabel(jobType)}
+            {checkOutLabel(jobType, withinRadius)}
           </button>
           <button type="button" onClick={refreshPosition}>
             위치 새로고침

@@ -15,8 +15,9 @@ export type JobType = "OFFICE" | "DELIVERY" | "SALES";
 export type DeviceType = "WEB" | "IOS" | "ANDROID";
 export type CheckAction = "checkIn" | "checkOut";
 
-// 사무직: 출근/퇴근 모두 근무지 반경 검증. 배송직: 출근만 반경 검증(퇴근은 현장퇴근).
-// 영업직: 출퇴근 모두 위치 제한 없음.
+// 사무직: 출근/퇴근 모두 근무지 반경 이내가 아니면 막는다(필수). 배송직: 출근만 필수(퇴근은 막지 않음).
+// 영업직: 출퇴근 모두 막지 않음. 다만 "막지 않음"인 경우에도 근무지 반경 안에 있으면 일반 출근/퇴근(NORMAL)으로,
+// 밖이면 현장출근/현장퇴근(FIELD)으로 자동 분류한다 — checkIn/checkOut의 findNearestActiveWorkPlace 결과로 판단.
 export function requiresRadiusCheck(jobType: JobType, action: CheckAction): boolean {
   if (jobType === "OFFICE") return true;
   if (jobType === "DELIVERY") return action === "checkIn";
@@ -60,15 +61,12 @@ export async function checkIn(db: Db, employeeId: string, jobType: JobType, body
   // 네트워크 재시도 등으로 같은 출근 요청이 중복 도착해도 에러 대신 기존 기록을 그대로 반환한다(멱등 처리).
   if (existing) return existing;
 
-  let workPlaceId: number | null = null;
-  let checkInType: "NORMAL" | "FIELD" = "FIELD";
-
-  if (requiresRadiusCheck(jobType, "checkIn")) {
-    const nearest = await findNearestActiveWorkPlace(db, body.lat, body.lng);
-    if (!nearest) throw new AttendanceError("지정된 근무지 100m 이내에서만 출근할 수 있습니다.", 403);
-    workPlaceId = nearest.id;
-    checkInType = "NORMAL";
+  const nearest = await findNearestActiveWorkPlace(db, body.lat, body.lng);
+  if (!nearest && requiresRadiusCheck(jobType, "checkIn")) {
+    throw new AttendanceError("지정된 근무지 100m 이내에서만 출근할 수 있습니다.", 403);
   }
+  const workPlaceId = nearest?.id ?? null;
+  const checkInType: "NORMAL" | "FIELD" = nearest ? "NORMAL" : "FIELD";
 
   const now = new Date().toISOString();
   try {
@@ -116,12 +114,11 @@ export async function checkOut(db: Db, employeeId: string, jobType: JobType, bod
     throw new AttendanceError("출근 기록이 없습니다.", 400);
   }
 
-  let checkOutType: "NORMAL" | "FIELD" = "FIELD";
-  if (requiresRadiusCheck(jobType, "checkOut")) {
-    const nearest = await findNearestActiveWorkPlace(db, body.lat, body.lng);
-    if (!nearest) throw new AttendanceError("지정된 근무지 100m 이내에서만 퇴근할 수 있습니다.", 403);
-    checkOutType = "NORMAL";
+  const nearest = await findNearestActiveWorkPlace(db, body.lat, body.lng);
+  if (!nearest && requiresRadiusCheck(jobType, "checkOut")) {
+    throw new AttendanceError("지정된 근무지 100m 이내에서만 퇴근할 수 있습니다.", 403);
   }
+  const checkOutType: "NORMAL" | "FIELD" = nearest ? "NORMAL" : "FIELD";
 
   const now = new Date().toISOString();
   const updates = {

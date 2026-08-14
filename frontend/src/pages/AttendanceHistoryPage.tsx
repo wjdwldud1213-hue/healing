@@ -254,7 +254,7 @@ export function AttendanceHistoryPage() {
 
       {canViewOthers && (
         <div className="toolbar">
-          <label>
+          <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             직원 선택
             <select value={selectedEmployeeId} onChange={(e) => setSelectedEmployeeId(e.target.value)}>
               {currentUser && <option value={currentUser.employeeId}>{currentUser.name} (본인)</option>}

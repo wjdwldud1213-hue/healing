@@ -6,6 +6,13 @@
 
 - 모든 변경사항은 먼저 계획으로 설명하고, 사용자가 반영해달라고 말하기 전까지는 파일을 수정하거나 실행하지 않는다. 아래 "세션 시작/종료 규칙"의 "작업시작"도 이 원칙을 벗어나지 않는다 — 파일 수정이 필요한 작업이면 계획 제시가 먼저다.
 
+## 모바일 앱 전환 대비 원칙
+
+- 이 그룹웨어는 웹으로 먼저 구현되지만, **추후 모바일 앱(Capacitor 또는 React Native 등)으로도 구현될 것을 염두에 두고 작업한다.**
+- 브라우저 전용 API(위치, 카메라, 푸시 알림, 로컬 스토리지 등)를 컴포넌트에서 직접 호출하지 않고 인터페이스로 추상화한 뒤 웹 구현체를 그 인터페이스 뒤에 둔다. 앱 전환 시엔 인터페이스를 구현하는 새 provider만 추가하면 되도록 설계한다.
+  - 이미 적용된 선례: `frontend/src/lib/geolocation.ts`의 `GeoProvider` 인터페이스 + `webGeoProvider` 구현체 (자세한 내용은 아래 "핵심 도메인 규칙" 참고).
+- 새 기능을 설계할 때 "이 부분이 모바일 네이티브 API로 바뀔 수 있는가?"를 먼저 검토하고, 그렇다면 위와 같은 인터페이스 분리 패턴을 적용한다.
+
 ## 기술 스택
 
 - **Backend**: Cloudflare Workers + Hono + Cloudflare D1(SQLite) + Drizzle ORM. `wrangler.toml`에 매일 KST 00:00 실행되는 연차 자동발생 배치 cron 트리거 있음.
@@ -47,7 +54,7 @@ frontend/src/
 - **연차 잔여 = `grantedDays + carriedOverDays - usedDays`** (`employee_leave_balances`, 연도별 집계).
 - **연차 자동발생은 두 지점에서 트리거된다: ① 매일 KST 00:00 cron 배치(`runLeaveAccrualBatch`), ② 직원 등록 시점(`POST /employees`, `initialLeaveDays`를 관리자가 직접 입력하지 않은 경우).** 둘 다 `backend/src/lib/leaveAccrual.ts`의 `accrueLeaveForEmployee()`를 공유하므로, 과거 입사일(예: 시스템 도입 전부터 재직 중인 직원)을 등록해도 등록 즉시 입사일 기준으로 밀린 연차가 소급 계산되어 다음 자정 배치를 기다릴 필요가 없다. `leave_grants`에 이미 있는 이력(연도/개월차)을 기준으로 부족분만 채우는 멱등 설계라 두 트리거가 겹쳐 호출돼도 중복 발생하지 않는다. `initialLeaveDays`를 관리자가 직접 입력한 경우엔 자동 계산을 건너뛴다(수동 입력이 우선).
 - 주의: `db/schema.ts`의 `leaveRequests` 주석은 "결재 기능 없음, 항상 PENDING"이라고 되어 있지만 **이는 오래된 주석이고 실제로는 승인/반려가 이미 구현되어 있음** (`backend/src/lib/leaveApproval.ts`, `AdminLeaveRequestsPage.tsx`). 스키마 주석보다 실제 코드를 신뢰할 것.
-- **출근/퇴근 반경 검증은 직군(`employees.jobType`: `OFFICE`/`DELIVERY`/`SALES`)별로 다르다.** 사무직은 출근·퇴근 모두 `work_places` 반경(기본 100m) 이내에서만 가능, 배송직은 출근만 반경 검증(퇴근은 위치 무관 "현장퇴근"), 영업직은 출퇴근 모두 위치 제한 없음. 이 규칙은 `backend/src/lib/attendance.ts`의 `requiresRadiusCheck()`와 프론트 `AttendanceClockPage.tsx`의 동일 이름 함수 두 곳에 **의도적으로 중복 구현**되어 있음 — 프론트는 버튼 활성화 UX용 1차 판단이고, 서버가 항상 좌표를 재검증하는 최종 판단이다. 이 규칙을 바꿀 때는 두 곳 다 수정해야 함.
+- **출근/퇴근 반경 검증은 직군(`employees.jobType`: `OFFICE`/`DELIVERY`/`SALES`)별로 "필수 여부"가 다르고, 필수가 아닌 경우에도 반경 결과로 자동 분류한다.** 사무직은 출근·퇴근 모두 `work_places` 반경(기본 100m) 안이 아니면 막힘(필수). 배송직은 출근만 필수, 퇴근은 막지 않음. 영업직은 출퇴근 모두 막지 않음. **"막지 않음"인 경우에도 실제로 반경 안이면 일반 출근/퇴근(`NORMAL`, 문구도 "출근/퇴근")으로, 밖이면 현장출근/현장퇴근(`FIELD`, 문구도 "현장출근/현장퇴근")으로 자동 기록된다** — 즉 반경 체크 자체는 항상 하되, 막을지 말지만 직군별로 다름. 이 규칙은 `backend/src/lib/attendance.ts`의 `requiresRadiusCheck()`+`checkIn`/`checkOut`과 프론트 `AttendanceClockPage.tsx`의 동일 이름 함수+`checkInLabel`/`checkOutLabel` 두 곳에 **의도적으로 중복 구현**되어 있음 — 프론트는 버튼 활성화/문구 UX용 1차 판단이고, 서버가 항상 좌표를 재검증하는 최종 판단이다. 이 규칙을 바꿀 때는 두 곳 다 수정해야 함.
 - **`attendance_logs`는 체크인/체크아웃 정보를 한 행에 담는다** (출근 시 insert, 퇴근 시 같은 행을 update) — `leaveRequests`처럼 상태별로 별도 행을 만들지 않음. `checkInAt`/`checkOutAt`은 항상 서버 `new Date().toISOString()`으로 기록하고 클라이언트가 보낸 시간은 신뢰하지 않는다.
 - **출근/퇴근 API는 멱등(idempotent)하게 동작한다.** 이미 `WORKING` 상태인데 다시 출근을 시도하면(네트워크 재시도 등) 에러 대신 기존 기록을 그대로 반환하고, 이미 `DONE`인데 다시 퇴근을 시도해도 마찬가지다. 동시 요청 레이스는 `attendance_logs_working_employee_idx`(부분 유니크 인덱스, `WHERE status='WORKING'`)로 DB 레벨에서도 막는다.
 - **Geolocation은 컴포넌트가 `navigator.geolocation`을 직접 쓰지 않고 항상 `frontend/src/lib/geolocation.ts`의 `GeoProvider` 인터페이스(`webGeoProvider` 구현체)를 통해서만 접근한다.** 추후 Capacitor/React Native로 전환할 때 이 구현체만 교체하면 되도록 설계됨.

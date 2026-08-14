@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { filterMenuByPermissions, findMenuItemByPath } from "./menuData";
+import { filterMenuByPermissions, findMenuItemByPath, getMobileTabItems, MOBILE_TAB_ICONS } from "./menuData";
 import type { MenuGroup } from "./menuData";
+
+const HOME_ICON = '<path d="M4 11.5 12 4l8 7.5"/><path d="M6 10.5V20h4v-6h4v6h4v-9.5"/>';
+const MORE_ICON = '<line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="14" y2="18"/>';
+const DEFAULT_TAB_ICON = '<circle cx="12" cy="12" r="8"/>';
 
 const MOBILE_BREAKPOINT = 767;
 const PIN_STORAGE_KEY = "gw:sidebarPinned";
@@ -88,6 +92,11 @@ export function AppShell() {
     () => filterMenuByPermissions(currentUser?.permissions ?? []),
     [currentUser],
   );
+  const mobileTabItems = useMemo(
+    () => getMobileTabItems(currentUser?.permissions ?? []),
+    [currentUser],
+  );
+  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
 
   // pinned: 고정 모드. 켜져 있으면 본문(main-content)을 클릭해도 패널이 자동으로 닫히지 않고,
   // 로그아웃 후 다시 로그인해도(=이 컴포넌트가 새로 mount돼도) 켜져 있던 그룹이 그대로 펼쳐진다.
@@ -122,6 +131,7 @@ export function AppShell() {
   // 라우트가 바뀔 때마다(직접 URL 진입/새로고침 포함) 해당 그룹을 논리적으로 펼친다.
   // 데스크톱은 패널을 계속 보여주고, 모바일은 오버레이를 자동으로 띄우지 않고 상태만 기억한다.
   useEffect(() => {
+    setMoreSheetOpen(false);
     const match = findMenuItemByPath(location.pathname);
     if (match) {
       setOpenGroupId(match.group.id);
@@ -164,15 +174,6 @@ export function AppShell() {
     if (isMobile) setPanelVisible(false);
   }
 
-  function handleHamburgerClick() {
-    if (panelVisible) {
-      closePanel();
-      return;
-    }
-    if (!openGroupId && visibleMenu[0]) setOpenGroupId(visibleMenu[0].id);
-    setPanelVisible(true);
-  }
-
   const breadcrumbLabel = activeMatch
     ? `${activeMatch.group.label} › ${activeMatch.child.label}`
     : (STATIC_PAGE_LABELS[location.pathname] ?? "");
@@ -181,18 +182,6 @@ export function AppShell() {
     <>
       <header className="topbar">
         <div className="topbar-left">
-          <button
-            className="hamburger-btn"
-            aria-label="메뉴 열기"
-            aria-expanded={panelVisible}
-            onClick={handleHamburgerClick}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
           <Link to="/" className="logo-text">
             Healing Food
           </Link>
@@ -298,6 +287,52 @@ export function AppShell() {
         <main className="main-content">
           <Outlet />
         </main>
+      </div>
+
+      <nav className="bottom-tab-bar" aria-label="하단 메뉴">
+        <Link to="/" className={`bottom-tab${location.pathname === "/" ? " active" : ""}`}>
+          <GroupIcon pathFragment={HOME_ICON} />
+          <span>홈</span>
+        </Link>
+        {mobileTabItems.map((item) => (
+          <Link
+            key={item.id}
+            to={item.path}
+            className={`bottom-tab${location.pathname === item.path ? " active" : ""}`}
+          >
+            <GroupIcon pathFragment={MOBILE_TAB_ICONS[item.id] ?? DEFAULT_TAB_ICON} />
+            <span>{item.label}</span>
+          </Link>
+        ))}
+        <button
+          type="button"
+          className={`bottom-tab${moreSheetOpen ? " active" : ""}`}
+          aria-expanded={moreSheetOpen}
+          onClick={() => setMoreSheetOpen((v) => !v)}
+        >
+          <GroupIcon pathFragment={MORE_ICON} />
+          <span>더보기</span>
+        </button>
+      </nav>
+
+      <div className={`mobile-more-sheet${moreSheetOpen ? " open" : ""}`}>
+        {visibleMenu.map((group) => (
+          <div key={group.id} className="mobile-more-group">
+            <p className="mobile-more-group-label">{group.label}</p>
+            <div className="mobile-more-list">
+              {group.children.map((child) => (
+                <Link
+                  key={child.id}
+                  to={child.path}
+                  className={`mobile-more-item${activeMatch?.child.id === child.id ? " active" : ""}`}
+                  onClick={() => setMoreSheetOpen(false)}
+                >
+                  {child.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </>
   );

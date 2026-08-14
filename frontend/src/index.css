@@ -63,23 +63,6 @@ body {
   min-width: 0;
 }
 
-.hamburger-btn {
-  display: none;
-  width: 38px;
-  height: 38px;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  border-radius: 9px;
-  color: var(--text-main);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.hamburger-btn:hover {
-  background: var(--notice-bg);
-}
-
 .topbar .logo-text {
   font-family: "Poppins", sans-serif;
   font-weight: 800;
@@ -572,25 +555,106 @@ body {
   }
 }
 
+/* ── 모바일 전용: 하단 탭바 + 더보기 시트 ────────────── */
+.bottom-tab-bar {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 190;
+  background: var(--card-white);
+  border-top: 1px solid var(--border-soft);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+}
+
+.bottom-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 10.5px;
+  padding: 6px 2px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.bottom-tab.active {
+  color: var(--accent-rust);
+  font-weight: 600;
+}
+
+.mobile-more-sheet {
+  display: none;
+}
+
 @media (max-width: 767px) {
-  .hamburger-btn {
-    display: flex;
+  .mobile-more-sheet.open {
+    display: block;
+    position: fixed;
+    inset: var(--topbar-h) 0 62px 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--bg-muted);
+    overflow-y: auto;
+    z-index: 189;
+    padding: 16px;
   }
+
+  .mobile-more-group + .mobile-more-group {
+    margin-top: 18px;
+  }
+
+  .mobile-more-group-label {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    margin: 0 0 8px 2px;
+  }
+
+  .mobile-more-list {
+    background: var(--card-white);
+    border-radius: 12px;
+    border: 1px solid var(--border-soft);
+    overflow: hidden;
+  }
+
+  .mobile-more-item {
+    display: block;
+    padding: 13px 14px;
+    font-size: 13.5px;
+    color: var(--text-main);
+    text-decoration: none;
+  }
+  .mobile-more-item + .mobile-more-item {
+    border-top: 1px solid var(--notice-bg);
+  }
+  .mobile-more-item.active {
+    color: var(--accent-rust);
+    font-weight: 600;
+  }
+
   .breadcrumb {
     display: none;
   }
 
-  .submenu-panel {
-    position: fixed;
-    top: var(--topbar-h);
-    left: var(--rail-w);
-    height: calc(100vh - var(--topbar-h));
-    box-shadow: 14px 0 32px -18px rgba(15, 32, 25, 0.35);
-    z-index: 181;
+  /* 데스크톱 사이드바(아이콘 레일+아코디언)는 모바일에서 완전히 숨기고 하단 탭바로 대체한다 */
+  .sidebar-wrapper,
+  .sidebar-overlay {
+    display: none;
   }
 
   .main-content {
-    padding: 22px 16px 32px;
+    padding: 22px 16px calc(78px + env(safe-area-inset-bottom));
+  }
+
+  .bottom-tab-bar {
+    display: flex;
   }
 }
 

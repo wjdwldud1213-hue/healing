@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api/client";
-import { webGeoProvider } from "../lib/geolocation";
 import type { WorkPlace } from "../types";
 
 export function WorkPlacesPage() {
   const [workPlaces, setWorkPlaces] = useState<WorkPlace[]>([]);
   const [name, setName] = useState("");
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
+  const [address, setAddress] = useState("");
   const [radiusM, setRadiusM] = useState("100");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -22,31 +20,14 @@ export function WorkPlacesPage() {
 
   useEffect(load, []);
 
-  function fillCurrentPosition() {
-    setError(null);
-    webGeoProvider
-      .getCurrentPosition()
-      .then((pos) => {
-        setLatitude(String(pos.lat));
-        setLongitude(String(pos.lng));
-      })
-      .catch((e) => setError((e as Error).message));
-  }
-
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      await api.post("/work-places", {
-        name,
-        latitude: Number(latitude),
-        longitude: Number(longitude),
-        radiusM: Number(radiusM),
-      });
+      await api.post("/work-places", { name, address, radiusM: Number(radiusM) });
       setName("");
-      setLatitude("");
-      setLongitude("");
+      setAddress("");
       setRadiusM("100");
       load();
     } catch (err) {
@@ -65,7 +46,7 @@ export function WorkPlacesPage() {
     <section>
       <h2>근무지 관리</h2>
       <p className="hint">
-        여기 등록된 좌표/반경을 기준으로 사무직·배송직 출근 시 위치를 검증합니다. 삭제 대신
+        입력한 주소를 좌표로 자동 변환해 사무직·배송직 출근 시 위치를 검증합니다. 삭제 대신
         비활성화로 관리합니다.
       </p>
 
@@ -77,22 +58,11 @@ export function WorkPlacesPage() {
             <input value={name} onChange={(e) => setName(e.target.value)} required />
           </label>
           <label>
-            위도
+            주소
             <input
-              type="number"
-              step="any"
-              value={latitude}
-              onChange={(e) => setLatitude(e.target.value)}
-              required
-            />
-          </label>
-          <label>
-            경도
-            <input
-              type="number"
-              step="any"
-              value={longitude}
-              onChange={(e) => setLongitude(e.target.value)}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="도로명 또는 지번 주소"
               required
             />
           </label>
@@ -112,9 +82,6 @@ export function WorkPlacesPage() {
             <button type="submit" disabled={loading}>
               등록
             </button>
-            <button type="button" onClick={fillCurrentPosition}>
-              현재 위치로 채우기
-            </button>
           </div>
         </form>
       </div>
@@ -125,8 +92,7 @@ export function WorkPlacesPage() {
           <thead>
             <tr>
               <th>지점명</th>
-              <th>위도</th>
-              <th>경도</th>
+              <th>주소</th>
               <th>반경(m)</th>
               <th>상태</th>
               <th></th>
@@ -136,8 +102,7 @@ export function WorkPlacesPage() {
             {workPlaces.map((p) => (
               <tr key={p.id}>
                 <td>{p.name}</td>
-                <td>{p.latitude}</td>
-                <td>{p.longitude}</td>
+                <td>{p.address}</td>
                 <td>{p.radiusM}</td>
                 <td>{p.isActive ? "사용중" : "비활성"}</td>
                 <td>

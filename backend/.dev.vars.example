@@ -1,0 +1,4 @@
+# 카카오 디벨로퍼스(https://developers.kakao.com)에서 발급받은 REST API 키.
+# work_places 주소 등록 시 지오코딩(주소 -> 좌표 변환)에 쓰인다.
+# 이 파일을 .dev.vars로 복사한 뒤 실제 값을 채워 넣는다 (.dev.vars는 git에 커밋되지 않음).
+KAKAO_REST_API_KEY=

@@ -1,5 +1,6 @@
 export type Bindings = {
   DB: D1Database;
+  KAKAO_REST_API_KEY: string;
 };
 
 // currentUserId는 4단계(로그인) 미들웨어가 실제 로그인 세션에서 채워 넣는다.

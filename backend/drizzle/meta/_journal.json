@@ -50,6 +50,13 @@
       "when": 1786664822033,
       "tag": "0006_striped_vin_gonzales",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1786689336108,
+      "tag": "0007_gray_manta",
+      "breakpoints": true
     }
   ]
 }

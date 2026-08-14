@@ -1,0 +1,1 @@
+ALTER TABLE `work_places` ADD `address` text NOT NULL;

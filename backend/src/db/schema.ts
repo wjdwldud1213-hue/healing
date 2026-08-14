@@ -238,6 +238,8 @@ export const leaveRequests = sqliteTable(
 export const workPlaces = sqliteTable("work_places", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
+  // 관리자가 입력한 원본 주소. 위도/경도는 이 주소를 카카오 로컬 API로 지오코딩한 결과(반경 계산용).
+  address: text("address").notNull(),
   latitude: real("latitude").notNull(),
   longitude: real("longitude").notNull(),
   radiusM: integer("radius_m").notNull().default(100),

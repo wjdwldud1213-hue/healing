@@ -19,10 +19,11 @@ backend/src/
   routes/       auth, departments, employees, leave, permissions, reference, roles,
                 attendance(출근/퇴근/근태조회), workPlaces(근무지 CRUD)
   lib/          db, employeeId(사번 채번), leaveAccrual(연차 자동발생), leaveApproval(승인/반려),
-                permissions, attendance(Haversine 거리계산 + 출퇴근 비즈니스 로직)
+                permissions, attendance(Haversine 거리계산 + 출퇴근 비즈니스 로직),
+                geocode(카카오 로컬 API로 주소 -> 좌표 변환, work_places 등록/수정 시 서버가 대행)
   middleware/   auth, permission
   db/schema.ts  Drizzle 스키마 (도메인 규칙이 주석으로 문서화되어 있음)
-  drizzle/      마이그레이션 (0000~0006)
+  drizzle/      마이그레이션 (0000~0007)
 
 frontend/src/
   pages/        LoginPage, HomePage, MyProfilePage, EmployeesPage, DepartmentsPage,
@@ -50,6 +51,7 @@ frontend/src/
 - **출근/퇴근 API는 멱등(idempotent)하게 동작한다.** 이미 `WORKING` 상태인데 다시 출근을 시도하면(네트워크 재시도 등) 에러 대신 기존 기록을 그대로 반환하고, 이미 `DONE`인데 다시 퇴근을 시도해도 마찬가지다. 동시 요청 레이스는 `attendance_logs_working_employee_idx`(부분 유니크 인덱스, `WHERE status='WORKING'`)로 DB 레벨에서도 막는다.
 - **Geolocation은 컴포넌트가 `navigator.geolocation`을 직접 쓰지 않고 항상 `frontend/src/lib/geolocation.ts`의 `GeoProvider` 인터페이스(`webGeoProvider` 구현체)를 통해서만 접근한다.** 추후 Capacitor/React Native로 전환할 때 이 구현체만 교체하면 되도록 설계됨.
 - **연차관리/근태관리 관련 신규 권한 코드**: `LEAVE_APPROVE`, `LEAVE_MANAGE`, `ATTENDANCE_MANAGE`(근무지 CRUD + 타 직원 근태 조회) — 모두 `permissions.category = '근태관리'`.
+- **`work_places` 등록/수정은 위도/경도를 직접 입력받지 않고 주소(`address`)만 입력받아 서버가 카카오 로컬 API로 지오코딩한다** (`backend/src/lib/geocode.ts`). API 키(`KAKAO_REST_API_KEY`)는 백엔드 시크릿으로만 보관하고 프론트에는 절대 노출하지 않음 — 그래서 지오코딩 호출은 항상 `POST/PATCH /work-places`에서 서버가 대행. 로컬 개발 시 `backend/.dev.vars`(gitignore됨, `.dev.vars.example` 참고)에 키를 넣어야 동작함. 카카오 디벨로퍼스 앱에서 "카카오맵" 제품이 활성화돼 있어야 API가 응답함(비활성 시 403 `OPEN_MAP_AND_LOCAL service disabled`).
 
 ## 기능 구현 상태
 
@@ -62,13 +64,14 @@ frontend/src/
 - 연차 관리 화면 개편: 연차 신청 폼을 모달로 전환, 시작일/종료일 입력 시 일수 자동 계산, "연차 현황"을 총/사용/잔여 3개 통계 카드로 표시, 신청 목록을 연차 시작일 기준 내림차순 정렬 (커밋 `f64401b`)
 - 근태내역조회 달력: 네이버/구글 캘린더 스타일 6주 그리드, 토요일 파란색/일요일·공휴일 빨간색 표기(공휴일명 함께 표시), 연/월 바로가기 + "오늘" 버튼 (커밋 `092b78b`)
 - 근태내역조회 공휴일 데이터에 2027년 설날/추석/부처님오신날/대체공휴일 추가, 연도 이동 범위를 올해 기준 전년~후년 3개년으로 제한 (커밋 `ff581ce`)
-- **출근/퇴근(근태 체크인) 기능 1단계**: `work_places`/`attendance_logs` 테이블 + `employees.jobType` 추가(마이그레이션 `0006`), 직군별 반경 검증 규칙(사무직 출퇴근 모두/배송직 출근만/영업직 없음) 서버·프론트 양쪽 구현, 출근/퇴근 API 멱등 처리, 근무지 관리 화면(`ATTENDANCE_MANAGE` 권한), 근태내역조회 달력에 출퇴근 기록 통합(KST 변환), `GeoProvider` 인터페이스로 위치 접근 추상화(웹 구현체만 작성, 앱 전환 대비). 사무직 외근 예외신청/승인(2단계)은 스키마만 미리 확보해두고 미구현.
+- **출근/퇴근(근태 체크인) 기능 1단계**: `work_places`/`attendance_logs` 테이블 + `employees.jobType` 추가(마이그레이션 `0006`), 직군별 반경 검증 규칙(사무직 출퇴근 모두/배송직 출근만/영업직 없음) 서버·프론트 양쪽 구현, 출근/퇴근 API 멱등 처리, 근무지 관리 화면(`ATTENDANCE_MANAGE` 권한), 근태내역조회 달력에 출퇴근 기록 통합(KST 변환), `GeoProvider` 인터페이스로 위치 접근 추상화(웹 구현체만 작성, 앱 전환 대비). 원격 D1 마이그레이션 적용 + 백엔드/프론트엔드 배포 완료. 사무직 외근 예외신청/승인(2단계)은 스키마만 미리 확보해두고 미구현.
+- **근무지 등록 주소 입력화**: `work_places`에 `address` 컬럼 추가(마이그레이션 `0007`), 위도/경도 수동 입력 대신 주소를 카카오 로컬 API로 지오코딩(`backend/src/lib/geocode.ts`)하도록 `WorkPlacesPage.tsx`/`POST·PATCH /work-places` 변경. `KAKAO_REST_API_KEY` 원격 시크릿 설정 + 배포 완료.
 
 **미구현**: 없음 (`App.tsx`/`menuData.ts`의 `ComingSoonPage` 대상 메뉴가 현재 모두 실제 화면으로 연결됨). 향후 새 메뉴가 추가되면 다시 이 자리에 기록.
 
 ## 현재 작업 진행 상황 (수동 갱신 섹션)
 
-> 기준: 출근/퇴근(근태 체크인) 기능 1단계 구현 완료, 2026-08-14. 로컬에서 사무직/배송직/영업직 세 시나리오 모두 브라우저로 직접 검증 완료(반경 검증, 멱등 처리, 권한 게이팅, 근태내역조회 반영). **원격 D1(`--remote`) 마이그레이션은 아직 미실행** — 배포 전에 `wrangler d1 migrations apply groupware-db --remote`와 `backend/seed_attendance_manage_permission.sql`을 원격에도 적용해야 함. 프론트엔드(`healingfood`) 재배포도 아직 안 함. 다음 세션에서 2단계(사무직 외근 예외신청/승인)를 시작하면 여기에 기록할 것.
+> 기준: 2026-08-14. 출근/퇴근 기능 1단계 + 근무지 주소 지오코딩까지 **원격 D1/백엔드 Worker/프론트엔드 Pages 배포 완료**, 브라우저로 실제 주소("서울특별시 중구 세종대로 110" → 서울시청 좌표) 등록 및 반경 검증까지 로컬·원격 양쪽 확인함. **단, 근무지 주소 지오코딩 관련 변경분(`schema.ts`, `routes/workPlaces.ts`, `lib/geocode.ts`, `types.ts` x2, `WorkPlacesPage.tsx`, 마이그레이션 `0007`, `.dev.vars.example`)은 아직 git commit 전 — 워킹트리에 미커밋 상태로 남아있음.** 다음 세션 시작 시 커밋 여부부터 확인할 것. 이후 2단계(사무직 외근 예외신청/승인)를 시작하면 여기에 기록.
 
 ## 세션 시작/종료 규칙
 

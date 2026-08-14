@@ -4,6 +4,7 @@ import { getDb } from "../lib/db";
 import { workPlaces } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { requirePermission } from "../middleware/permission";
+import { geocodeAddress } from "../lib/geocode";
 import type { AppEnv } from "../types";
 
 export const workPlacesRoute = new Hono<AppEnv>();
@@ -23,18 +24,32 @@ workPlacesRoute.get("/", async (c) => {
 
 workPlacesRoute.post("/", requirePermission("ATTENDANCE_MANAGE"), async (c) => {
   const body = await c.req
-    .json<{ name?: string; latitude?: number; longitude?: number; radiusM?: number }>()
-    .catch(() => ({}) as { name?: string; latitude?: number; longitude?: number; radiusM?: number });
+    .json<{ name?: string; address?: string; radiusM?: number }>()
+    .catch(() => ({}) as { name?: string; address?: string; radiusM?: number });
 
   const name = (body.name ?? "").trim();
-  const { latitude, longitude } = body;
+  const address = (body.address ?? "").trim();
   if (!name) return c.json({ error: "근무지 이름을 입력하세요." }, 400);
-  if (latitude == null || longitude == null) return c.json({ error: "좌표를 입력하세요." }, 400);
+  if (!address) return c.json({ error: "주소를 입력하세요." }, 400);
+
+  let geocoded;
+  try {
+    geocoded = await geocodeAddress(c.env.KAKAO_REST_API_KEY, address);
+  } catch {
+    return c.json({ error: "주소 검색 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." }, 502);
+  }
+  if (!geocoded) return c.json({ error: "주소를 찾을 수 없습니다. 다시 확인해주세요." }, 400);
 
   const db = getDb(c.env.DB);
   const [created] = await db
     .insert(workPlaces)
-    .values({ name, latitude, longitude, radiusM: body.radiusM ?? 100 })
+    .values({
+      name,
+      address,
+      latitude: geocoded.lat,
+      longitude: geocoded.lng,
+      radiusM: body.radiusM ?? 100,
+    })
     .returning();
   return c.json(created, 201);
 });
@@ -44,23 +59,30 @@ workPlacesRoute.patch("/:id", requirePermission("ATTENDANCE_MANAGE"), async (c) 
   if (!Number.isInteger(id)) return c.json({ error: "잘못된 ID입니다." }, 400);
 
   const body = await c.req
-    .json<{ name?: string; latitude?: number; longitude?: number; radiusM?: number; isActive?: boolean }>()
-    .catch(
-      () =>
-        ({}) as {
-          name?: string;
-          latitude?: number;
-          longitude?: number;
-          radiusM?: number;
-          isActive?: boolean;
-        },
-    );
+    .json<{ name?: string; address?: string; radiusM?: number; isActive?: boolean }>()
+    .catch(() => ({}) as { name?: string; address?: string; radiusM?: number; isActive?: boolean });
+
+  const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() };
+  if (typeof body.name === "string") updates.name = body.name.trim();
+  if (typeof body.radiusM === "number") updates.radiusM = body.radiusM;
+  if (typeof body.isActive === "boolean") updates.isActive = body.isActive;
+
+  if (typeof body.address === "string" && body.address.trim()) {
+    const address = body.address.trim();
+    let geocoded;
+    try {
+      geocoded = await geocodeAddress(c.env.KAKAO_REST_API_KEY, address);
+    } catch {
+      return c.json({ error: "주소 검색 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." }, 502);
+    }
+    if (!geocoded) return c.json({ error: "주소를 찾을 수 없습니다. 다시 확인해주세요." }, 400);
+    updates.address = address;
+    updates.latitude = geocoded.lat;
+    updates.longitude = geocoded.lng;
+  }
 
   const db = getDb(c.env.DB);
-  await db
-    .update(workPlaces)
-    .set({ ...body, updatedAt: new Date().toISOString() })
-    .where(eq(workPlaces.id, id));
+  await db.update(workPlaces).set(updates).where(eq(workPlaces.id, id));
 
   const updated = await db.select().from(workPlaces).where(eq(workPlaces.id, id)).get();
   if (!updated) return c.json({ error: "찾을 수 없습니다." }, 404);

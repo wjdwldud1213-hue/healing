@@ -45,6 +45,7 @@ frontend/src/
 - **퇴사 시 row를 삭제하지 않는다.** `employmentStatus`를 `ACTIVE → RESIGNED`로 바꿀 뿐. 부서/직급 이력은 `employee_assignment_history`에서 조회.
 - **급여·연차발생은 append-only 이력 테이블로 관리.** `employee_compensations`, `leave_grants`에 이벤트마다 한 행씩 쌓고, "현재값"은 최신 행(또는 집계)으로 계산한다. `employees` 테이블에는 급여 등 "현재 상태" 필드를 두지 않는다.
 - **연차 잔여 = `grantedDays + carriedOverDays - usedDays`** (`employee_leave_balances`, 연도별 집계).
+- **연차 자동발생은 두 지점에서 트리거된다: ① 매일 KST 00:00 cron 배치(`runLeaveAccrualBatch`), ② 직원 등록 시점(`POST /employees`, `initialLeaveDays`를 관리자가 직접 입력하지 않은 경우).** 둘 다 `backend/src/lib/leaveAccrual.ts`의 `accrueLeaveForEmployee()`를 공유하므로, 과거 입사일(예: 시스템 도입 전부터 재직 중인 직원)을 등록해도 등록 즉시 입사일 기준으로 밀린 연차가 소급 계산되어 다음 자정 배치를 기다릴 필요가 없다. `leave_grants`에 이미 있는 이력(연도/개월차)을 기준으로 부족분만 채우는 멱등 설계라 두 트리거가 겹쳐 호출돼도 중복 발생하지 않는다. `initialLeaveDays`를 관리자가 직접 입력한 경우엔 자동 계산을 건너뛴다(수동 입력이 우선).
 - 주의: `db/schema.ts`의 `leaveRequests` 주석은 "결재 기능 없음, 항상 PENDING"이라고 되어 있지만 **이는 오래된 주석이고 실제로는 승인/반려가 이미 구현되어 있음** (`backend/src/lib/leaveApproval.ts`, `AdminLeaveRequestsPage.tsx`). 스키마 주석보다 실제 코드를 신뢰할 것.
 - **출근/퇴근 반경 검증은 직군(`employees.jobType`: `OFFICE`/`DELIVERY`/`SALES`)별로 다르다.** 사무직은 출근·퇴근 모두 `work_places` 반경(기본 100m) 이내에서만 가능, 배송직은 출근만 반경 검증(퇴근은 위치 무관 "현장퇴근"), 영업직은 출퇴근 모두 위치 제한 없음. 이 규칙은 `backend/src/lib/attendance.ts`의 `requiresRadiusCheck()`와 프론트 `AttendanceClockPage.tsx`의 동일 이름 함수 두 곳에 **의도적으로 중복 구현**되어 있음 — 프론트는 버튼 활성화 UX용 1차 판단이고, 서버가 항상 좌표를 재검증하는 최종 판단이다. 이 규칙을 바꿀 때는 두 곳 다 수정해야 함.
 - **`attendance_logs`는 체크인/체크아웃 정보를 한 행에 담는다** (출근 시 insert, 퇴근 시 같은 행을 update) — `leaveRequests`처럼 상태별로 별도 행을 만들지 않음. `checkInAt`/`checkOutAt`은 항상 서버 `new Date().toISOString()`으로 기록하고 클라이언트가 보낸 시간은 신뢰하지 않는다.
@@ -66,12 +67,13 @@ frontend/src/
 - 근태내역조회 공휴일 데이터에 2027년 설날/추석/부처님오신날/대체공휴일 추가, 연도 이동 범위를 올해 기준 전년~후년 3개년으로 제한 (커밋 `ff581ce`)
 - **출근/퇴근(근태 체크인) 기능 1단계**: `work_places`/`attendance_logs` 테이블 + `employees.jobType` 추가(마이그레이션 `0006`), 직군별 반경 검증 규칙(사무직 출퇴근 모두/배송직 출근만/영업직 없음) 서버·프론트 양쪽 구현, 출근/퇴근 API 멱등 처리, 근무지 관리 화면(`ATTENDANCE_MANAGE` 권한), 근태내역조회 달력에 출퇴근 기록 통합(KST 변환), `GeoProvider` 인터페이스로 위치 접근 추상화(웹 구현체만 작성, 앱 전환 대비). 원격 D1 마이그레이션 적용 + 백엔드/프론트엔드 배포 완료. 사무직 외근 예외신청/승인(2단계)은 스키마만 미리 확보해두고 미구현.
 - **근무지 등록 주소 입력화**: `work_places`에 `address` 컬럼 추가(마이그레이션 `0007`), 위도/경도 수동 입력 대신 주소를 카카오 로컬 API로 지오코딩(`backend/src/lib/geocode.ts`)하도록 `WorkPlacesPage.tsx`/`POST·PATCH /work-places` 변경. `KAKAO_REST_API_KEY` 원격 시크릿 설정 + 배포 완료.
+- **연차 자동발생을 직원 등록 시점에도 즉시 계산**: `leaveAccrual.ts`의 직원별 로직을 `accrueLeaveForEmployee()`로 분리해 매일 배치(`runLeaveAccrualBatch`)와 신규 등록(`accrueLeaveForNewEmployee`, `POST /employees`)이 공유하도록 변경. 과거 입사일로 등록된 직원(예: 시스템 도입 전부터 재직 중인 실제 직원 A0001, 2019-08-01 입사)도 등록 즉시 소급 계산되어 다음 자정 배치를 기다릴 필요가 없음. 배포 완료 + A0001 기존 데이터도 동일 로직으로 검증한 값을 원격 DB에 소급 반영 완료(2026년 잔여 18일).
 
 **미구현**: 없음 (`App.tsx`/`menuData.ts`의 `ComingSoonPage` 대상 메뉴가 현재 모두 실제 화면으로 연결됨). 향후 새 메뉴가 추가되면 다시 이 자리에 기록.
 
 ## 현재 작업 진행 상황 (수동 갱신 섹션)
 
-> 기준: 2026-08-14. 출근/퇴근 기능 1단계 + 근무지 주소 지오코딩까지 **원격 D1/백엔드 Worker/프론트엔드 Pages 배포 완료**, 브라우저로 실제 주소("서울특별시 중구 세종대로 110" → 서울시청 좌표) 등록 및 반경 검증까지 로컬·원격 양쪽 확인함. **단, 근무지 주소 지오코딩 관련 변경분(`schema.ts`, `routes/workPlaces.ts`, `lib/geocode.ts`, `types.ts` x2, `WorkPlacesPage.tsx`, 마이그레이션 `0007`, `.dev.vars.example`)은 아직 git commit 전 — 워킹트리에 미커밋 상태로 남아있음.** 다음 세션 시작 시 커밋 여부부터 확인할 것. 이후 2단계(사무직 외근 예외신청/승인)를 시작하면 여기에 기록.
+> 기준: 2026-08-14. 출근/퇴근 기능 1단계 + 근무지 주소 지오코딩(커밋 `9bdc2e7`, push 완료) + **연차 자동발생 등록시점 즉시 계산**까지 전부 백엔드 Worker/프론트엔드 Pages 배포 완료. 연차 자동발생 건은 로컬에서 신규 등록(과거 입사일)·배치 재실행 시 중복 없음·수동 `initialLeaveDays` 입력 시 자동계산 스킵까지 검증했고, 실제 프로덕션 직원 A0001(2019-08-01 입사, 등록 당시엔 잔여 0으로 표시되던 건)도 동일 로직 결과값을 원격 DB에 소급 반영해서 정상화함(2026년 잔여 18일). **단, `leaveAccrual.ts`/`employees.ts` 변경분은 아직 git commit 전 — 워킹트리에 미커밋 상태로 남아있음.** 다음 세션 시작 시 커밋 여부부터 확인할 것. 이후 2단계(사무직 외근 예외신청/승인)를 시작하면 여기에 기록.
 
 ## 세션 시작/종료 규칙
 

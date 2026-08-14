@@ -103,18 +103,78 @@ async function grantLeave(
 }
 
 /**
- * 매일 실행되는 배치.
- * 1) 입사 1년 미만 직원: 매월 만근 시 1일(최대 11일) — 재직 중이면 만근으로 간주.
- *    배치가 며칠/몇 달 늦게 돌아도, 각 회차는 실제 월 앙니버서리 날짜(addMonthsClamped)의
- *    연도에 귀속시킨다 — 배치를 실행한 날짜의 연도로 몰아넣지 않는다. 예: 2025-02-10 입사자는
- *    2025년에 10일, 2026-01-10에 11번째(2026년 귀속) 1일이 발생해야 정확하다.
- * 2) 입사 1년 이상 직원의 연간 연차(첫 해는 비례, 3년차부터 2년마다 가산, 최대 25일) — hireYear+1부터
- *    올해까지 아직 발생시키지 않은 연도가 있으면 전부 채운다. "오늘이 1월 1일인지"로 판단하지 않는다 —
- *    배치가 그 해 1월 1일에 한 번도 못 돌았어도(예: 이 기능 자체가 그 이후에 배포됨) 다음 실행에서
- *    놓친 연도분을 자동으로 소급 발생시키기 위함이다.
- * leave_grants에 이미 남은 이력 개수/연도를 기준으로 판단하므로 하루에 여러 번/여러 날(심지어 몇 년)
- * 못 돌았어도 중복 없이 부족분만큼만 자동으로 채운다(멱등).
+ * 직원 한 명 기준으로 "오늘"까지 아직 발생시키지 않은 연차를 전부 채운다.
+ * 1) 입사 1년 미만: 매월 만근 시 1일(최대 11일) — 재직 중이면 만근으로 간주.
+ *    각 회차는 실제 월 앙니버서리 날짜(addMonthsClamped)의 연도에 귀속시킨다 — 배치/호출을
+ *    실행한 날짜의 연도로 몰아넣지 않는다. 예: 2025-02-10 입사자는 2025년에 10일,
+ *    2026-01-10에 11번째(2026년 귀속) 1일이 발생해야 정확하다.
+ * 2) 입사 1년 이상의 연간 연차(첫 해는 비례, 3년차부터 2년마다 가산, 최대 25일) — hireYear+1부터
+ *    오늘 연도까지 아직 발생시키지 않은 연도가 있으면 전부 채운다. "오늘이 1월 1일인지"로 판단하지
+ *    않는다 — 여러 해를 놓쳤어도(신규 등록 시점에 처음 호출되는 경우 포함) 그만큼 소급 발생시키기 위함이다.
+ * leave_grants에 이미 남은 이력 개수/연도를 기준으로 판단하므로 몇 번을 호출해도, 며칠/몇 년이
+ * 지나서 호출해도 중복 없이 부족분만큼만 채운다(멱등) — 그래서 매일 도는 배치와 직원 등록 시점의
+ * 즉시 호출이 같은 함수를 안전하게 공유할 수 있다.
  */
+async function accrueLeaveForEmployee(
+  db: Db,
+  emp: { employeeId: string; hireDate: string },
+  today: { year: number; month: number; day: number },
+): Promise<number> {
+  let grantedEvents = 0;
+  const hire = parseDate(emp.hireDate);
+
+  const monthsElapsed = fullMonthsElapsed(hire, today);
+  const targetMonthlyGrants = Math.min(monthsElapsed, 11);
+  if (targetMonthlyGrants > 0) {
+    const alreadyGranted = await db
+      .select()
+      .from(leaveGrants)
+      .where(
+        and(
+          eq(leaveGrants.employeeId, emp.employeeId),
+          like(leaveGrants.reason, `${MONTHLY_REASON_PREFIX}%`),
+        ),
+      );
+    const missing = targetMonthlyGrants - alreadyGranted.length;
+    for (let i = 0; i < missing; i++) {
+      const monthIndex = alreadyGranted.length + i + 1;
+      const anniversary = addMonthsClamped(hire, monthIndex);
+      await grantLeave(
+        db,
+        emp.employeeId,
+        anniversary.year,
+        1,
+        `${MONTHLY_REASON_PREFIX} (${monthIndex}개월차)`,
+        anniversary.dateStr,
+      );
+      grantedEvents++;
+    }
+  }
+
+  const grantedAnnualYears = await db
+    .select()
+    .from(leaveGrants)
+    .where(
+      and(
+        eq(leaveGrants.employeeId, emp.employeeId),
+        like(leaveGrants.reason, `${ANNUAL_REASON_PREFIX}%`),
+      ),
+    );
+  const grantedYearSet = new Set(grantedAnnualYears.map((g) => g.year));
+
+  for (let year = hire.year + 1; year <= today.year; year++) {
+    if (grantedYearSet.has(year)) continue;
+    const days = computeAnnualGrantDays(emp.hireDate, year);
+    if (days != null && days > 0) {
+      await grantLeave(db, emp.employeeId, year, days, ANNUAL_REASON_PREFIX, `${year}-01-01`);
+      grantedEvents++;
+    }
+  }
+
+  return grantedEvents;
+}
+
+// 매일 실행되는 배치. 재직 중인 전 직원에 대해 accrueLeaveForEmployee를 돈다.
 export async function runLeaveAccrualBatch(db: Db): Promise<{ grantedEvents: number }> {
   const today = kstToday();
   let grantedEvents = 0;
@@ -125,56 +185,21 @@ export async function runLeaveAccrualBatch(db: Db): Promise<{ grantedEvents: num
     .where(ne(employees.employmentStatus, "RESIGNED"));
 
   for (const emp of activeEmployees) {
-    const hire = parseDate(emp.hireDate);
-
-    const monthsElapsed = fullMonthsElapsed(hire, today);
-    const targetMonthlyGrants = Math.min(monthsElapsed, 11);
-    if (targetMonthlyGrants > 0) {
-      const alreadyGranted = await db
-        .select()
-        .from(leaveGrants)
-        .where(
-          and(
-            eq(leaveGrants.employeeId, emp.employeeId),
-            like(leaveGrants.reason, `${MONTHLY_REASON_PREFIX}%`),
-          ),
-        );
-      const missing = targetMonthlyGrants - alreadyGranted.length;
-      for (let i = 0; i < missing; i++) {
-        const monthIndex = alreadyGranted.length + i + 1;
-        const anniversary = addMonthsClamped(hire, monthIndex);
-        await grantLeave(
-          db,
-          emp.employeeId,
-          anniversary.year,
-          1,
-          `${MONTHLY_REASON_PREFIX} (${monthIndex}개월차)`,
-          anniversary.dateStr,
-        );
-        grantedEvents++;
-      }
-    }
-
-    const grantedAnnualYears = await db
-      .select()
-      .from(leaveGrants)
-      .where(
-        and(
-          eq(leaveGrants.employeeId, emp.employeeId),
-          like(leaveGrants.reason, `${ANNUAL_REASON_PREFIX}%`),
-        ),
-      );
-    const grantedYearSet = new Set(grantedAnnualYears.map((g) => g.year));
-
-    for (let year = hire.year + 1; year <= today.year; year++) {
-      if (grantedYearSet.has(year)) continue;
-      const days = computeAnnualGrantDays(emp.hireDate, year);
-      if (days != null && days > 0) {
-        await grantLeave(db, emp.employeeId, year, days, ANNUAL_REASON_PREFIX, `${year}-01-01`);
-        grantedEvents++;
-      }
-    }
+    grantedEvents += await accrueLeaveForEmployee(db, emp, today);
   }
 
+  return { grantedEvents };
+}
+
+// 직원 등록 시점에 바로 호출한다 — 다음 날 자정 배치를 기다리지 않고 입사일 기준으로 밀린 연차를
+// (입사일이 과거라면 그만큼 소급해서) 즉시 반영하기 위함. accrueLeaveForEmployee와 동일 로직이라
+// 배치가 나중에 다시 돌아도 중복 발생하지 않는다.
+export async function accrueLeaveForNewEmployee(
+  db: Db,
+  employeeId: string,
+  hireDate: string,
+): Promise<{ grantedEvents: number }> {
+  const today = kstToday();
+  const grantedEvents = await accrueLeaveForEmployee(db, { employeeId, hireDate }, today);
   return { grantedEvents };
 }

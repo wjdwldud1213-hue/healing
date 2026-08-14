@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "../lib/db";
 import { generateEmployeeId, generateTempPassword } from "../lib/employeeId";
 import { getPermissionCodes } from "../lib/permissions";
+import { accrueLeaveForNewEmployee } from "../lib/leaveAccrual";
 import {
   departments,
   employeeAssignmentHistory,
@@ -230,6 +231,12 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
   }
 
   await db.batch([...insertStatements, ...extraStatements]);
+
+  // 연차일수를 관리자가 직접 입력하지 않았다면, 입사일 기준으로 밀린(과거 입사자라면 소급까지 포함한)
+  // 연차를 등록 즉시 계산해서 반영한다 — 다음 날 자정 자동발생 배치를 기다릴 필요가 없도록.
+  if (initialLeaveDays == null) {
+    await accrueLeaveForNewEmployee(db, employeeId, hireDate);
+  }
 
   const created = await db.query.employees.findFirst({
     ...employeeDetail,

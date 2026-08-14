@@ -96,12 +96,13 @@ frontend/src/
 - **영업직/배송직 출퇴근 반경 자동분류**: 반경 밖이어도 막지 않는 직군(영업직 출퇴근, 배송직 퇴근)도 실제 반경 안/밖 여부로 일반(`NORMAL`)/현장(`FIELD`) 자동 분류하도록 `attendance.ts` 변경 (커밋 `1f44ab9`).
 - **PWA 설치 지원 + 모바일 전용 하단 탭바 레이아웃 (모바일 앱형 UI 1단계)**: `manifest.webmanifest`/`sw.js`(캐싱 없는 최소 구성)/브랜드 색상 앱 아이콘(`frontend/public/icons/`) 추가로 폰 홈 화면에 PWA로 설치 가능. 모바일 폭(767px 이하)에서는 기존 아이콘 레일+아코디언 사이드바 대신 하단 탭바(홈/출근·퇴근/연차 관리/더보기)를 새로 렌더링 — 데스크톱 레이아웃은 변경 없음. 하단 탭 노출 항목은 `menuData.ts`의 `MenuChild.mobileTab` 플래그로 조정(현재 출근/퇴근, 연차 관리만 `true` — 어떤 항목을 더 넣을지는 추후 결정 예정, 이 파일만 바꾸면 됨). "더보기" 탭은 권한 필터링된 전체 메뉴를 그룹별 풀스크린 시트로 표시. 배포 완료 (커밋 `ea4b1a8`). Capacitor 네이티브 전환은 이후 필요해지면 별도 단계로 진행 예정 — `GeoProvider` 추상화가 이를 대비해 이미 설계돼 있음.
 - **운영과 완전히 분리된 스테이징(테스트) 환경 구축**: `healingfood-api-test`(백엔드 Worker, D1 `groupware-db-test`) + `healingfood-test`(프론트엔드) 신설. `backend/wrangler.toml`에 `[env.test]` 섹션 추가, 마이그레이션+시드(관리자 계정 포함) 적용, CORS에 테스트 origin 추가, 로그인부터 데이터 분리까지 실제 배포 상태에서 검증 완료. 자세한 사용법은 위 "배포 환경" 섹션 참고. `KAKAO_REST_API_KEY` 테스트 시크릿은 아직 미등록(사용자가 직접 등록 필요).
+- **브라우저 탭 제목/파비콘 환경별 구분**: `index.html`의 `<title>`/favicon을 Vite의 `%VITE_XXX%` 치환 방식으로 바꿔 `frontend/.env.production`(`Healing Food`, 다크그린 아이콘) / `.env.test`(`Healing Food (TEST)`, 러스트색 아이콘 `icon-test.svg`) / `.env`(로컬 개발, `(DEV)`)가 각각 다르게 표시됨 — 운영/테스트 탭을 여러 개 열어놔도 한눈에 구분 가능. 운영/테스트 양쪽 배포 완료.
 
 **미구현**: 없음 (`App.tsx`/`menuData.ts`의 `ComingSoonPage` 대상 메뉴가 현재 모두 실제 화면으로 연결됨). 향후 새 메뉴가 추가되면 다시 이 자리에 기록.
 
 ## 현재 작업 진행 상황 (수동 갱신 섹션)
 
-> 기준: 2026-08-14. 스테이징 환경 구축(백엔드 `healingfood-api-test`+D1 `groupware-db-test`, 프론트엔드 `healingfood-test`)까지 커밋·push·양쪽 배포 완료, 로그인/데이터 분리 실제 검증함. **워킹트리 깨끗함 — 이 작업 관련 미커밋 변경 없음** (단, `frontend/src/pages/WorkPlacesPage.tsx`는 다른 세션이 작업 중인 미커밋 변경이 남아있으니 건드리지 말 것 — 그 세션이 마무리하면 커밋될 것으로 보임). **미완료 항목: `KAKAO_REST_API_KEY` 테스트 환경 시크릿을 사용자가 아직 등록하지 않음** — `wrangler secret put KAKAO_REST_API_KEY --env test`를 backend 디렉터리에서 직접 실행해야 근무지 등록(지오코딩) 기능이 테스트 환경에서도 동작함. 그 외 기능은 이미 정상 동작. 다음 세션에서 이 시크릿 등록 여부부터 확인할 것.
+> 기준: 2026-08-14. 브라우저 탭 제목/파비콘 환경별 구분까지 커밋·push·운영/테스트 양쪽 배포 완료. **워킹트리 깨끗함 — 이 작업 관련 미커밋 변경 없음** (단, `frontend/src/pages/WorkPlacesPage.tsx`는 다른 세션이 작업 중인 미커밋 변경이 남아있을 수 있으니 건드리지 말 것). **미완료 항목: `KAKAO_REST_API_KEY` 테스트 환경 시크릿을 사용자가 아직 등록하지 않음** — `wrangler secret put KAKAO_REST_API_KEY --env test`를 backend 디렉터리에서 직접 실행해야 근무지 등록(지오코딩) 기능이 테스트 환경에서도 동작함. 그 외 기능은 이미 정상 동작. 다음 세션에서 이 시크릿 등록 여부부터 확인할 것.
 
 ## 세션 시작/종료 규칙
 

@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "deploy:test": "wrangler deploy --env test",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply groupware-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply groupware-db --remote",
+    "db:migrate:test": "wrangler d1 migrations apply groupware-db-test --remote --env test",
     "db:seed:local": "wrangler d1 execute groupware-db --local --file=./seed.sql",
+    "db:seed:test": "wrangler d1 execute groupware-db-test --remote --env test --file=./seed.sql",
     "db:studio:local": "wrangler d1 execute groupware-db --local --command \"SELECT name FROM sqlite_master WHERE type='table'\""
   },
   "keywords": [],

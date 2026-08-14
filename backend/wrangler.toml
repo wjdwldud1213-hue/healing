@@ -12,3 +12,16 @@ migrations_dir = "drizzle"
 # 매일 UTC 15:00(KST 00:00)에 연차 자동발생 배치(scheduled 핸들러)를 실행한다.
 [triggers]
 crons = ["0 15 * * *"]
+
+# ── 스테이징(테스트) 환경 — 운영과 완전히 분리된 Worker/D1. `wrangler deploy --env test`로 배포 ──
+[env.test]
+name = "healingfood-api-test"
+
+[[env.test.d1_databases]]
+binding = "DB"
+database_name = "groupware-db-test"
+database_id = "e8d8d423-4270-4ce5-85ac-5cbee0e00a91"
+migrations_dir = "drizzle"
+
+[env.test.triggers]
+crons = ["0 15 * * *"]

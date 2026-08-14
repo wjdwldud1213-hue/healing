@@ -19,6 +19,18 @@
 - **Frontend**: React 19 + React Router 7 + Vite 8. Cloudflare Pages(`healingfood`)로 배포.
 - 인증: 세션 기반(`sessions` 테이블) + `bcryptjs` 비밀번호 해싱. idle timeout + "로그인 유지" 시 절대만료시각.
 
+## 배포 환경 (운영 / 스테이징)
+
+- **운영**: 백엔드 Worker `healingfood-api` (D1 `groupware-db`), 프론트엔드 Pages/Workers 프로젝트 `healingfood` (`https://healingfood.healingfood.workers.dev`). `npm run deploy` (각 디렉터리에서).
+- **스테이징(테스트)**: 완전히 분리된 백엔드 Worker `healingfood-api-test`(`backend/wrangler.toml`의 `[env.test]`, D1 `groupware-db-test`)와 프론트엔드 Pages/Workers 프로젝트 `healingfood-test` (`https://healingfood-test.healingfood.workers.dev`). 운영과 DB/Worker가 완전히 별개라 테스트 데이터가 운영에 절대 섞이지 않음.
+  - 백엔드 배포: `cd backend && npm run deploy:test` (`wrangler deploy --env test`)
+  - 백엔드 마이그레이션/시드: `npm run db:migrate:test`, `npm run db:seed:test` (+ `seed_leave_manage_permission.sql`/`seed_leave_approve_permission.sql`/`seed_attendance_manage_permission.sql`은 `wrangler d1 execute groupware-db-test --remote --env test --file=...`로 수동 적용)
+  - 프론트엔드 배포: `cd frontend && npm run deploy:test` (`frontend/.env.test`의 `VITE_API_BASE`로 테스트 백엔드를 가리켜서 빌드 후 `wrangler pages deploy dist --project-name=healingfood-test`)
+  - `frontend/.env.test`, `frontend/.env.production`은 `.gitignore`(`.env*`)에 걸려 git에 커밋되지 않음 — 로컬 디스크에만 존재. 새 환경에서 클론하면 다시 만들어야 함(운영 URL: `https://healingfood-api.healingfood.workers.dev`, 테스트 URL: `https://healingfood-api-test.healingfood.workers.dev`).
+  - `backend/src/index.ts`의 CORS origin 배열에 두 프론트엔드 origin이 모두 등록돼 있음(같은 코드가 양쪽 Worker에 배포되므로 공유 리스트).
+  - `KAKAO_REST_API_KEY` 시크릿은 Worker(환경)별로 따로 등록해야 함 — 운영에는 이미 있음, 테스트는 `wrangler secret put KAKAO_REST_API_KEY --env test`로 **사용자가 직접** 등록 필요(미등록 상태면 근무지 등록 시 지오코딩만 실패, 나머지 기능은 정상).
+  - 연차 자동발생 cron도 테스트 환경에 동일하게 걸려 있음(운영과 별개로 테스트 DB 기준으로 매일 실행).
+
 ## 디렉터리 구조
 
 ```
@@ -76,12 +88,15 @@ frontend/src/
 - **근무지 등록 주소 입력화**: `work_places`에 `address` 컬럼 추가(마이그레이션 `0007`), 위도/경도 수동 입력 대신 주소를 카카오 로컬 API로 지오코딩(`backend/src/lib/geocode.ts`)하도록 `WorkPlacesPage.tsx`/`POST·PATCH /work-places` 변경. `KAKAO_REST_API_KEY` 원격 시크릿 설정 + 배포 완료.
 - **연차 자동발생을 직원 등록 시점에도 즉시 계산**: `leaveAccrual.ts`의 직원별 로직을 `accrueLeaveForEmployee()`로 분리해 매일 배치(`runLeaveAccrualBatch`)와 신규 등록(`accrueLeaveForNewEmployee`, `POST /employees`)이 공유하도록 변경. 과거 입사일로 등록된 직원(예: 시스템 도입 전부터 재직 중인 실제 직원 A0001, 2019-08-01 입사)도 등록 즉시 소급 계산되어 다음 자정 배치를 기다릴 필요가 없음. 배포 완료 + A0001 기존 데이터도 동일 로직으로 검증한 값을 원격 DB에 소급 반영 완료(2026년 잔여 18일).
 - **근태내역조회에 관리자용 "직원 선택" 추가**: `ATTENDANCE_MANAGE` 권한 보유자(시스템관리자)는 `AttendanceHistoryPage.tsx` 상단 드롭다운에서 다른 직원을 선택해 그 직원의 연차 현황 + 출퇴근 기록을 같은 달력으로 조회 가능. `GET /leave/requests`, `GET /leave/balance`, `GET /attendance/logs`가 모두 `employeeId` 쿼리 파라미터를 지원하며, `ATTENDANCE_MANAGE`가 없으면 서버가 파라미터를 무시하고 항상 본인 것만 반환(연차 신청/취소 자체는 여전히 본인만 가능 — 조회만 확장됨). 배포 완료.
+- **영업직/배송직 출퇴근 반경 자동분류**: 반경 밖이어도 막지 않는 직군(영업직 출퇴근, 배송직 퇴근)도 실제 반경 안/밖 여부로 일반(`NORMAL`)/현장(`FIELD`) 자동 분류하도록 `attendance.ts` 변경 (커밋 `1f44ab9`).
+- **PWA 설치 지원 + 모바일 전용 하단 탭바 레이아웃 (모바일 앱형 UI 1단계)**: `manifest.webmanifest`/`sw.js`(캐싱 없는 최소 구성)/브랜드 색상 앱 아이콘(`frontend/public/icons/`) 추가로 폰 홈 화면에 PWA로 설치 가능. 모바일 폭(767px 이하)에서는 기존 아이콘 레일+아코디언 사이드바 대신 하단 탭바(홈/출근·퇴근/연차 관리/더보기)를 새로 렌더링 — 데스크톱 레이아웃은 변경 없음. 하단 탭 노출 항목은 `menuData.ts`의 `MenuChild.mobileTab` 플래그로 조정(현재 출근/퇴근, 연차 관리만 `true` — 어떤 항목을 더 넣을지는 추후 결정 예정, 이 파일만 바꾸면 됨). "더보기" 탭은 권한 필터링된 전체 메뉴를 그룹별 풀스크린 시트로 표시. 배포 완료 (커밋 `ea4b1a8`). Capacitor 네이티브 전환은 이후 필요해지면 별도 단계로 진행 예정 — `GeoProvider` 추상화가 이를 대비해 이미 설계돼 있음.
+- **운영과 완전히 분리된 스테이징(테스트) 환경 구축**: `healingfood-api-test`(백엔드 Worker, D1 `groupware-db-test`) + `healingfood-test`(프론트엔드) 신설. `backend/wrangler.toml`에 `[env.test]` 섹션 추가, 마이그레이션+시드(관리자 계정 포함) 적용, CORS에 테스트 origin 추가, 로그인부터 데이터 분리까지 실제 배포 상태에서 검증 완료. 자세한 사용법은 위 "배포 환경" 섹션 참고. `KAKAO_REST_API_KEY` 테스트 시크릿은 아직 미등록(사용자가 직접 등록 필요).
 
 **미구현**: 없음 (`App.tsx`/`menuData.ts`의 `ComingSoonPage` 대상 메뉴가 현재 모두 실제 화면으로 연결됨). 향후 새 메뉴가 추가되면 다시 이 자리에 기록.
 
 ## 현재 작업 진행 상황 (수동 갱신 섹션)
 
-> 기준: 2026-08-14. 출근/퇴근 기능 1단계 + 근무지 주소 지오코딩(커밋 `9bdc2e7`) + 연차 자동발생 등록시점 즉시 계산(커밋 `d6ddcee`) + **근태내역조회 관리자용 직원 선택**까지 전부 커밋·push·백엔드 Worker/프론트엔드 Pages 배포 완료, 로컬에서 관리자/일반직원 양쪽 권한 분기(서버사이드 강제 포함) 검증함. **단, `leave.ts`/`AttendanceHistoryPage.tsx` 변경분은 아직 git commit 전 — 워킹트리에 미커밋 상태로 남아있음.** 다음 세션 시작 시 커밋 여부부터 확인할 것. 이후 2단계(사무직 외근 예외신청/승인)를 시작하면 여기에 기록.
+> 기준: 2026-08-14. 스테이징 환경 구축(백엔드 `healingfood-api-test`+D1 `groupware-db-test`, 프론트엔드 `healingfood-test`)까지 커밋·push·양쪽 배포 완료, 로그인/데이터 분리 실제 검증함. **워킹트리 깨끗함 — 이 작업 관련 미커밋 변경 없음** (단, `frontend/src/pages/WorkPlacesPage.tsx`는 다른 세션이 작업 중인 미커밋 변경이 남아있으니 건드리지 말 것 — 그 세션이 마무리하면 커밋될 것으로 보임). **미완료 항목: `KAKAO_REST_API_KEY` 테스트 환경 시크릿을 사용자가 아직 등록하지 않음** — `wrangler secret put KAKAO_REST_API_KEY --env test`를 backend 디렉터리에서 직접 실행해야 근무지 등록(지오코딩) 기능이 테스트 환경에서도 동작함. 그 외 기능은 이미 정상 동작. 다음 세션에서 이 시크릿 등록 여부부터 확인할 것.
 
 ## 세션 시작/종료 규칙
 

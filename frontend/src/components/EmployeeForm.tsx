@@ -28,8 +28,10 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
   const [departmentId, setDepartmentId] = useState(employee?.departmentId ?? 0);
   const [jobGradeId, setJobGradeId] = useState(employee?.jobGradeId ?? 0);
   const [hireDate, setHireDate] = useState(employee?.hireDate ?? "");
-  const [mobilePhone, setMobilePhone] = useState(employee?.mobilePhone ?? "");
-  const [extensionNumber, setExtensionNumber] = useState(employee?.extensionNumber ?? "");
+  const [mobilePhone, setMobilePhone] = useState(formatPhoneNumber(employee?.mobilePhone ?? ""));
+  const [extensionNumber, setExtensionNumber] = useState(
+    formatPhoneNumber(employee?.extensionNumber ?? ""),
+  );
   const [roleId, setRoleId] = useState(employee?.roleId ?? 0);
   const [jobType, setJobType] = useState<JobType>(employee?.jobType ?? "OFFICE");
   const [address, setAddress] = useState(employee?.address ?? "");

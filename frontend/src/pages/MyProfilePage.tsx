@@ -8,8 +8,10 @@ const STATUS_LABEL: Record<string, string> = { ACTIVE: "재직", LEAVE: "휴직"
 
 export function MyProfilePage() {
   const { currentUser, refresh } = useAuth();
-  const [mobilePhone, setMobilePhone] = useState(currentUser?.mobilePhone ?? "");
-  const [extensionNumber, setExtensionNumber] = useState(currentUser?.extensionNumber ?? "");
+  const [mobilePhone, setMobilePhone] = useState(formatPhoneNumber(currentUser?.mobilePhone ?? ""));
+  const [extensionNumber, setExtensionNumber] = useState(
+    formatPhoneNumber(currentUser?.extensionNumber ?? ""),
+  );
   const [address, setAddress] = useState(currentUser?.address ?? "");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

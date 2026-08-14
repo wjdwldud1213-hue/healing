@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import { formatPhoneNumber } from "../lib/phone";
 
 export function ForgotPasswordPage() {
   const [employeeId, setEmployeeId] = useState("");
@@ -42,7 +43,11 @@ export function ForgotPasswordPage() {
         </label>
         <label>
           휴대폰번호
-          <input value={mobilePhone} onChange={(e) => setMobilePhone(e.target.value)} required />
+          <input
+            value={mobilePhone}
+            onChange={(e) => setMobilePhone(formatPhoneNumber(e.target.value))}
+            required
+          />
         </label>
         {message && <p className="notice">{message}</p>}
         {error && <p className="error">{error}</p>}

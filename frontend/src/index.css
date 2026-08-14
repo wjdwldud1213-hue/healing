@@ -761,6 +761,19 @@ button {
   padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
+  /* 브라우저 기본값(Arial 등)이 아니라 본문과 동일한 폰트를 쓰도록 명시 —
+     지정 안 하면 label/본문 텍스트는 body에서 상속되지만 폼 컨트롤은 상속되지 않는다. */
+  font-family: inherit;
+}
+
+/* 크롬 계열은 type=date 내부 연/월/일 세그먼트를 shadow DOM으로 렌더링하는데,
+   위 font-family: inherit이 이 shadow DOM 안쪽까지는 전달되지 않아 별도로 명시해야 한다. */
+input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+input[type="date"]::-webkit-datetime-edit-text,
+input[type="date"]::-webkit-datetime-edit-year-field,
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-day-field {
+  font-family: inherit;
 }
 
 button {

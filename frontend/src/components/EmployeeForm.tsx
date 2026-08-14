@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api/client";
+import { formatPhoneNumber } from "../lib/phone";
 import type { Department, Employee, EmploymentStatus, JobGrade, JobType, Role } from "../types";
 
 const JOB_TYPE_LABEL: Record<JobType, string> = {
@@ -218,14 +219,17 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
           휴대폰번호
           <input
             value={mobilePhone}
-            onChange={(e) => setMobilePhone(e.target.value)}
+            onChange={(e) => setMobilePhone(formatPhoneNumber(e.target.value))}
             placeholder="010-0000-0000"
             required
           />
         </label>
         <label>
           내선번호
-          <input value={extensionNumber} onChange={(e) => setExtensionNumber(e.target.value)} />
+          <input
+            value={extensionNumber}
+            onChange={(e) => setExtensionNumber(formatPhoneNumber(e.target.value))}
+          />
         </label>
         <label>
           권한

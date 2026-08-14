@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { formatPhoneNumber } from "../lib/phone";
 
 const STATUS_LABEL: Record<string, string> = { ACTIVE: "재직", LEAVE: "휴직", RESIGNED: "퇴사" };
 
@@ -61,13 +62,17 @@ export function MyProfilePage() {
         <form onSubmit={handleSubmit} className="stacked-form">
           <label>
             휴대폰번호
-            <input value={mobilePhone} onChange={(e) => setMobilePhone(e.target.value)} required />
+            <input
+              value={mobilePhone}
+              onChange={(e) => setMobilePhone(formatPhoneNumber(e.target.value))}
+              required
+            />
           </label>
           <label>
             내선번호 (선택)
             <input
               value={extensionNumber ?? ""}
-              onChange={(e) => setExtensionNumber(e.target.value)}
+              onChange={(e) => setExtensionNumber(formatPhoneNumber(e.target.value))}
             />
           </label>
           <label>

@@ -662,9 +662,6 @@ body {
   .profile-info {
     display: none;
   }
-  .topbar .logo-text {
-    display: none;
-  }
 }
 
 .auth-shell {

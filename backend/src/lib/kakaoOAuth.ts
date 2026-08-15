@@ -29,7 +29,8 @@ export async function exchangeKakaoCodeForUserId(
     }),
   });
   if (!tokenRes.ok) {
-    throw new Error(`카카오 토큰 발급에 실패했습니다 (${tokenRes.status}).`);
+    const body = await tokenRes.text().catch(() => "");
+    throw new Error(`카카오 토큰 발급에 실패했습니다 (${tokenRes.status}): ${body}`);
   }
   const tokenData = await tokenRes.json<{ access_token: string }>();
 
@@ -37,7 +38,8 @@ export async function exchangeKakaoCodeForUserId(
     headers: { Authorization: `Bearer ${tokenData.access_token}` },
   });
   if (!userRes.ok) {
-    throw new Error(`카카오 사용자 정보 조회에 실패했습니다 (${userRes.status}).`);
+    const body = await userRes.text().catch(() => "");
+    throw new Error(`카카오 사용자 정보 조회에 실패했습니다 (${userRes.status}): ${body}`);
   }
   const userData = await userRes.json<{ id: number }>();
   return String(userData.id);

@@ -145,7 +145,8 @@ authRoute.post("/kakao/link", requireAuth, async (c) => {
       code,
       redirectUri,
     );
-  } catch {
+  } catch (err) {
+    console.error("[auth.kakao.link] token exchange failed:", err);
     return c.json({ error: "카카오 인증에 실패했습니다. 다시 시도해주세요." }, 400);
   }
 
@@ -187,7 +188,8 @@ authRoute.post("/kakao/reset-verify", async (c) => {
       code,
       redirectUri,
     );
-  } catch {
+  } catch (err) {
+    console.error("[auth.kakao.reset-verify] token exchange failed:", err);
     return c.json({ error: "카카오 인증에 실패했습니다. 다시 시도해주세요." }, 400);
   }
 

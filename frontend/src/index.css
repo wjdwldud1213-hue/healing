@@ -932,6 +932,10 @@ button[type="submit"] {
   overflow-y: auto;
 }
 
+.modal-card--wide {
+  max-width: 760px;
+}
+
 .modal-card .card {
   margin-top: 0;
 }

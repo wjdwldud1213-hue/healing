@@ -181,8 +181,8 @@ export function LeaveManagementPage() {
       </div>
 
       {showApplyModal && (
-        <Modal onClose={closeApplyModal}>
-          <div className="card" style={{ maxWidth: 760 }}>
+        <Modal onClose={closeApplyModal} wide>
+          <div className="card">
             <h3>연차 신청</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 24 }}>
               <form onSubmit={handleSubmit} className="stacked-form" style={{ maxWidth: "none" }}>

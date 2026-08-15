@@ -141,37 +141,39 @@ function ComposeModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
   }
 
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} wide>
       <div className="card">
         <h3>새 기안</h3>
-        <form onSubmit={handleSubmit} className="stacked-form" style={{ maxWidth: 480 }}>
-          <label>
-            제목
-            <input value={title} onChange={(e) => setTitle(e.target.value)} required />
-          </label>
-          <label>
-            내용
-            <textarea
-              className="input"
-              rows={5}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-            />
-          </label>
-          <div className="field">
-            <label>결재선</label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 24 }}>
+          <form onSubmit={handleSubmit} className="stacked-form" style={{ maxWidth: "none" }}>
+            <label>
+              제목
+              <input value={title} onChange={(e) => setTitle(e.target.value)} required />
+            </label>
+            <label>
+              내용
+              <textarea
+                className="input"
+                rows={5}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+              />
+            </label>
+            {error && <p className="error">{error}</p>}
+            <div className="form-actions">
+              <button type="submit" disabled={loading}>
+                결재 요청
+              </button>
+              <button type="button" onClick={onClose}>
+                취소
+              </button>
+            </div>
+          </form>
+          <div>
+            <h4 style={{ marginBottom: 8 }}>결재선</h4>
             <ApprovalLinePicker items={lineItems} onChange={setLineItems} />
           </div>
-          {error && <p className="error">{error}</p>}
-          <div className="form-actions">
-            <button type="submit" disabled={loading}>
-              결재 요청
-            </button>
-            <button type="button" onClick={onClose}>
-              취소
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
     </Modal>
   );

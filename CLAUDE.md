@@ -41,23 +41,26 @@
 ```
 backend/src/
   routes/       auth, departments, employees, leave, permissions, reference, roles,
-                attendance(출근/퇴근/근태조회), workPlaces(근무지 CRUD)
-  lib/          db, employeeId(사번 채번), leaveAccrual(연차 자동발생), leaveApproval(승인/반려),
-                permissions, attendance(Haversine 거리계산 + 출퇴근 비즈니스 로직),
+                attendance(출근/퇴근/근태조회), workPlaces(근무지 CRUD), approval(전자결제)
+  lib/          db, employeeId(사번 채번), leaveAccrual(연차 자동발생), leaveApproval(연차 승인/반려 —
+                최종 결재 승인 시 approval.ts가 호출), approval(전자결제 문서 생성/승인/반려/취소),
+                approvalLine(결재선 자동추천), permissions, attendance(Haversine 거리계산 + 출퇴근 비즈니스 로직),
                 geocode(카카오 로컬 API로 주소 -> 좌표 변환, work_places 등록/수정 시 서버가 대행)
   middleware/   auth, permission
   db/schema.ts  Drizzle 스키마 (도메인 규칙이 주석으로 문서화되어 있음)
-  drizzle/      마이그레이션 (0000~0007)
+  drizzle/      마이그레이션 (0000~0009)
 
 frontend/src/
   pages/        LoginPage, HomePage, MyProfilePage, EmployeesPage, DepartmentsPage,
                 ReferenceDataPage(직급/직책), RolesPage, AdminPasswordResetsPage,
-                LeaveManagementPage(본인 연차), AdminLeaveRequestsPage(연차 승인),
+                LeaveManagementPage(본인 연차), ApprovalDraftsPage(기안함), ApprovalInboxPage(결재함),
+                ApprovalAllDocumentsPage(전체 문서함 — 상무 이상만),
                 AttendanceHistoryPage(근태내역조회 달력), AttendanceClockPage(출근/퇴근),
                 WorkPlacesPage(근무지 관리), ComingSoonPage(미구현 메뉴 placeholder — 현재 대상 없음)
   layout/       AppShell, menuData
   auth/         AuthContext, RequireAuth, RequirePermission
-  components/   EmployeeForm, Modal
+  components/   EmployeeForm, Modal(wide 옵션으로 2단 레이아웃 모달 지원), ApprovalLinePicker(결재선 편집/미리보기),
+                ApprovalStepsProgress(결재 진행현황 스텝 인디케이터), ApprovalDocumentDetailModal(문서 상세 공용 모달)
   lib/          geolocation(GeoProvider 인터페이스 + webGeoProvider 구현체 — 앱 전환 시 이 구현체만 교체)
   api/client.ts, types.ts
 ```
@@ -70,12 +73,12 @@ frontend/src/
 - **급여·연차발생은 append-only 이력 테이블로 관리.** `employee_compensations`, `leave_grants`에 이벤트마다 한 행씩 쌓고, "현재값"은 최신 행(또는 집계)으로 계산한다. `employees` 테이블에는 급여 등 "현재 상태" 필드를 두지 않는다.
 - **연차 잔여 = `grantedDays + carriedOverDays - usedDays`** (`employee_leave_balances`, 연도별 집계).
 - **연차 자동발생은 두 지점에서 트리거된다: ① 매일 KST 00:00 cron 배치(`runLeaveAccrualBatch`), ② 직원 등록 시점(`POST /employees`, `initialLeaveDays`를 관리자가 직접 입력하지 않은 경우).** 둘 다 `backend/src/lib/leaveAccrual.ts`의 `accrueLeaveForEmployee()`를 공유하므로, 과거 입사일(예: 시스템 도입 전부터 재직 중인 직원)을 등록해도 등록 즉시 입사일 기준으로 밀린 연차가 소급 계산되어 다음 자정 배치를 기다릴 필요가 없다. `leave_grants`에 이미 있는 이력(연도/개월차)을 기준으로 부족분만 채우는 멱등 설계라 두 트리거가 겹쳐 호출돼도 중복 발생하지 않는다. `initialLeaveDays`를 관리자가 직접 입력한 경우엔 자동 계산을 건너뛴다(수동 입력이 우선).
-- 주의: `db/schema.ts`의 `leaveRequests` 주석은 "결재 기능 없음, 항상 PENDING"이라고 되어 있지만 **이는 오래된 주석이고 실제로는 승인/반려가 이미 구현되어 있음** (`backend/src/lib/leaveApproval.ts`, `AdminLeaveRequestsPage.tsx`). 스키마 주석보다 실제 코드를 신뢰할 것.
 - **출근/퇴근 반경 검증은 직군(`employees.jobType`: `OFFICE`/`DELIVERY`/`SALES`)별로 "필수 여부"가 다르고, 필수가 아닌 경우에도 반경 결과로 자동 분류한다.** 사무직은 출근·퇴근 모두 `work_places` 반경(기본 100m) 안이 아니면 막힘(필수). 배송직은 출근만 필수, 퇴근은 막지 않음. 영업직은 출퇴근 모두 막지 않음. **"막지 않음"인 경우에도 실제로 반경 안이면 일반 출근/퇴근(`NORMAL`, 문구도 "출근/퇴근")으로, 밖이면 현장출근/현장퇴근(`FIELD`, 문구도 "현장출근/현장퇴근")으로 자동 기록된다** — 즉 반경 체크 자체는 항상 하되, 막을지 말지만 직군별로 다름. 이 규칙은 `backend/src/lib/attendance.ts`의 `requiresRadiusCheck()`+`checkIn`/`checkOut`과 프론트 `AttendanceClockPage.tsx`의 동일 이름 함수+`checkInLabel`/`checkOutLabel` 두 곳에 **의도적으로 중복 구현**되어 있음 — 프론트는 버튼 활성화/문구 UX용 1차 판단이고, 서버가 항상 좌표를 재검증하는 최종 판단이다. 이 규칙을 바꿀 때는 두 곳 다 수정해야 함.
 - **`attendance_logs`는 체크인/체크아웃 정보를 한 행에 담는다** (출근 시 insert, 퇴근 시 같은 행을 update) — `leaveRequests`처럼 상태별로 별도 행을 만들지 않음. `checkInAt`/`checkOutAt`은 항상 서버 `new Date().toISOString()`으로 기록하고 클라이언트가 보낸 시간은 신뢰하지 않는다.
 - **출근/퇴근 API는 멱등(idempotent)하게 동작한다.** 이미 `WORKING` 상태인데 다시 출근을 시도하면(네트워크 재시도 등) 에러 대신 기존 기록을 그대로 반환하고, 이미 `DONE`인데 다시 퇴근을 시도해도 마찬가지다. 동시 요청 레이스는 `attendance_logs_working_employee_idx`(부분 유니크 인덱스, `WHERE status='WORKING'`)로 DB 레벨에서도 막는다.
 - **Geolocation은 컴포넌트가 `navigator.geolocation`을 직접 쓰지 않고 항상 `frontend/src/lib/geolocation.ts`의 `GeoProvider` 인터페이스(`webGeoProvider` 구현체)를 통해서만 접근한다.** 추후 Capacitor/React Native로 전환할 때 이 구현체만 교체하면 되도록 설계됨.
-- **연차관리/근태관리 관련 신규 권한 코드**: `LEAVE_APPROVE`, `LEAVE_MANAGE`, `ATTENDANCE_MANAGE`(근무지 CRUD + 타 직원 근태 조회) — 모두 `permissions.category = '근태관리'`.
+- **연차관리/근태관리 관련 권한 코드**: `LEAVE_MANAGE`, `ATTENDANCE_MANAGE`(근무지 CRUD + 타 직원 근태 조회) — 모두 `permissions.category = '근태관리'`. `LEAVE_APPROVE`는 전자결제 도입(아래 항목 참고)으로 더 이상 라우트에서 쓰이지 않음 — DB에는 남아있지만(`permissions`/`role_permissions` 행 삭제 안 함) 실사용처 없음.
+- **전자결제(전자결재)**: `approval_documents`(문서 헤더)/`approval_steps`(결재 단계) 두 테이블로 구성. 문서 유형은 `GENERAL`(자유양식)과 `LEAVE`(연차 신청, 상세는 `leaveRequests.documentId`로 역참조)만 있음(1단계 범위). 결재선은 `backend/src/lib/approvalLine.ts`의 `recommendDefaultApprovalLine()`이 자동 추천한다 — **1차: 기안자와 같은 부서에서 본인 제외 직급 최고자, 2차(최종): 물류부(부서코드 `C`) 기안이면 전사의 '상무', 그 외 모든 부서는 전사의 '실장'로 고정**(부서 무관, 직급명 기준). 기안자 본인이 이미 부서 내 최고직급자면 1차 슬롯이 아예 생성되지 않는다 — 이때 `approval_steps.stepOrder`는 1로 당겨지지 않고 원래 슬롯 번호 2를 그대로 유지한다(문서마다 stepOrder가 1부터 연속일 필요 없음, "다음 단계"는 항상 `MIN(stepOrder) WHERE stepOrder > 현재`로 찾음). 승인/반려/취소 로직은 `backend/src/lib/approval.ts`. 결재선에 지정된 사람만 승인/반려 가능하며, **상무 이상 직급(`job_grades.sortOrder >= '상무'의 sortOrder`)은 결재선에 없어도 전체 문서함(`/approval/all`)에서 모든 문서를 열람 가능**(승인/반려 권한은 아님, `isExecutiveViewer()`). 연차 신청은 `POST /leave/requests`가 내부적으로 `createApprovalDocument(documentType:"LEAVE")`를 호출해 결재 문서로 생성되며, 최종 승인 시에만 `leaveApproval.ts`의 `buildLeaveApprovalUpdates()`로 잔액이 차감된다(문서/단계 갱신과 한 `db.batch()`로 원자 처리). **알려진 제약**: 연차 신청 화면에는 결재선 편집 UI가 없어서, 추천 결재선이 완전히 비면(전사 최고직급자 본인이 신청) 신청 자체가 막힌다.
 - **`work_places` 등록/수정은 위도/경도를 직접 입력받지 않고 주소(`address`)만 입력받아 서버가 카카오 로컬 API로 지오코딩한다** (`backend/src/lib/geocode.ts`). API 키(`KAKAO_REST_API_KEY`)는 백엔드 시크릿으로만 보관하고 프론트에는 절대 노출하지 않음 — 그래서 지오코딩 호출은 항상 `POST/PATCH /work-places`에서 서버가 대행. 로컬 개발 시 `backend/.dev.vars`(gitignore됨, `.dev.vars.example` 참고)에 키를 넣어야 동작함. 카카오 디벨로퍼스 앱에서 "카카오맵" 제품이 활성화돼 있어야 API가 응답함(비활성 시 403 `OPEN_MAP_AND_LOCAL service disabled`).
 - **비밀번호 재설정은 관리자 승인 없이 카카오 계정 연동(OAuth)만으로 본인이 직접 한다.** `employees.kakaoUserId`(unique)에 미리 연동해둔 카카오 고유 ID가 있어야 하며, 없는 계정은 `mustChangePassword`와 동일한 패턴으로 로그인 직후 `/link-kakao`로 강제 이동된다(프론트 `RequireAuth.tsx`). 재설정 흐름: `GET /auth/kakao/authorize-url`(비로그인 가능) → 카카오 인증 → `POST /auth/kakao/reset-verify`(인가코드로 카카오 ID 확인 후 `password_reset_tokens`에 10분 만료 1회용 토큰 발급) → `POST /auth/kakao/reset-complete`(토큰+새 비밀번호). 카카오 로그인 Client ID는 지오코딩과 같은 카카오 앱의 `KAKAO_REST_API_KEY`를 재사용하고 Client Secret만 별도 시크릿(`KAKAO_LOGIN_CLIENT_SECRET`)으로 관리 — 전화번호/이메일 같은 민감 동의항목을 요청하지 않아 카카오 측 비즈니스 심사가 필요 없다(`backend/src/lib/kakaoOAuth.ts`). 예전 관리자 승인 이력 테이블(`password_reset_requests`)은 삭제하지 않고 그대로 남아있지만 더 이상 새로 쓰이지 않음. `generateTempPassword()`(고정값 `qwer1234!`)는 신규 직원 등록 시에만 쓰이고 재설정에는 더 이상 쓰이지 않는다.
 
@@ -104,14 +107,19 @@ frontend/src/
 - **카카오 로그인 실전 검증 완료 + 에러 로깅 보강** (커밋 `00156aa`) — 사용자가 실제 카카오 계정으로 연동→로그아웃 상태에서 셀프 비밀번호 재설정까지 운영에서 전 과정 완주함(A0003 계정). 이 과정에서 KOE006(Redirect URI가 "카카오 로그인" 섹션이 아니라 "로그아웃 리다이렉트 URI"에 잘못 등록됨), KOE010(`KAKAO_LOGIN_CLIENT_SECRET` 값이 카카오 콘솔의 실제 활성 값과 불일치) 두 가지 설정 오류를 발견해 사용자가 직접 수정함. 앞으로 같은 문제 재발 시 원인을 바로 알 수 있도록 카카오 토큰 교환 실패 시 응답 본문을 서버 로그에 남기도록 `backend/src/lib/kakaoOAuth.ts`/`backend/src/routes/auth.ts`에 에러 로깅 추가(실제 시크릿 값은 로그에 남기지 않음). 운영/테스트 배포 완료.
 - **모달이 드래그로 의도치 않게 닫히던 버그 수정** (커밋 `c15bb03`) — 입력창 안에서 텍스트를 드래그 선택하다 모달 바깥까지 끌고 나가서 놓으면 브라우저가 그 mouseup을 오버레이 클릭으로 처리해 모달이 닫히던 문제. `frontend/src/components/Modal.tsx`가 mousedown이 오버레이 배경 자체에서 시작된 경우에만 클릭으로 간주해 닫도록 수정 — 공용 컴포넌트라 앱 전체 모달(직원 수정, 연차 신청 등)에 동일하게 적용됨. 운영/테스트 배포 완료.
 - **근무지 관리 라벨 정리** (커밋 `bf8bc61`) — "지점명"을 "근무지"로 변경(폼+목록 헤더), 반경(m) 입력창의 하드코딩된 기본값 "100"을 제거해 빈 값으로 시작하도록 수정.
+- **전자결제(전자결재) 시스템 도입** (커밋 `c3ec5a5`, `52669b6`) — 기안/결재선 자동추천/승인·반려·취소 흐름 신설, 연차 신청을 결재 문서로 흡수, 기존 관리자 승인 화면(`AdminLeaveRequestsPage`, `LEAVE_APPROVE` 권한 라우트) 제거. 상세 규칙은 위 "핵심 도메인 규칙"의 "전자결제(전자결재)" 항목 참고. 로컬에서 직급 서열 5가지 시나리오 + 승인/반려/취소/연차잔액차감 전체 흐름 검증, 운영/테스트 양쪽 마이그레이션+배포 완료.
 
 **미구현**: 없음 (`App.tsx`/`menuData.ts`의 `ComingSoonPage` 대상 메뉴가 현재 모두 실제 화면으로 연결됨). 향후 새 메뉴가 추가되면 다시 이 자리에 기록.
 
 ## 현재 작업 진행 상황 (수동 갱신 섹션)
 
-> 기준: 2026-08-15. 근무지 관리 라벨 정리(커밋 `bf8bc61`)까지 커밋·push·운영/테스트 배포 완료. **워킹트리 깨끗함 — 미커밋 변경 없음.** 카카오 계정 연동 기반 셀프 비밀번호 재설정 기능이 운영에서 실사용자 계정(A0003)으로 전 과정(연동/로그아웃 후 재인증/비밀번호 변경) 실제 완주 검증까지 끝남 — 이 기능은 이제 완전히 검증된 상태. (참고: 부서 D를 "총무부"→"관리부"로 이름 변경한 건 코드 변경 없는 순수 데이터 수정으로 운영 DB에 직접 반영 완료.)
+> 기준: 2026-08-15. 전자결제(전자결재) 시스템 1단계 구현 완료(커밋 `c3ec5a5`, `52669b6`) — 운영/테스트 양쪽 마이그레이션+배포 완료. **이 2개 커밋은 아직 `origin/main`에 push하지 않음** (`git status`에 "ahead 2"로 표시됨, push는 요청받지 않아 로컬에만 있음).
 >
-> **미완료 항목(이번 건과 별개, 여전히 미해결)**: `KAKAO_REST_API_KEY` 테스트 환경 시크릿이 아직 미등록 — `wrangler secret put KAKAO_REST_API_KEY --env test`. 이게 없으면 테스트 환경에서는 근무지 지오코딩뿐 아니라 카카오 로그인(연동/재설정)도 `client_id=undefined`로 실패한다(운영은 이미 등록되어 있어 정상 동작 확인함. 다만 테스트 환경은 `VITE_REQUIRE_KAKAO_LINK=false`라 카카오 연동 자체가 강제되진 않음).
+> **미커밋 상태로 남아있는 작업**: 기안 작성 모달(`ApprovalDraftsPage.tsx`)에 결재선 미리보기 2단 레이아웃이 빠져있던 것과, 공용 `Modal`이 480px로 폭이 고정돼 2단 레이아웃이 찌그러지던 문제를 수정함(`Modal.tsx`에 `wide` 옵션 추가, `LeaveManagementPage.tsx`/`ApprovalDraftsPage.tsx`가 사용, `index.css`에 `.modal-card--wide` 추가). **이미 로컬 검증 후 테스트/운영 양쪽에 배포까지 완료했지만 git 커밋은 아직 안 함** — 다음 세션에서 커밋 필요.
+>
+> **참고(내 작업 아님, 손대지 않음)**: 이 세션 도중 다른 세션이 동시에 이 폴더에서 "조직도"(`OrgChartPage.tsx`, `/org-chart` 라우트+메뉴) 기능을 작업 중이었음. 그 변경분은 `App.tsx`/`menuData.ts`/`index.css`에 미커밋 상태로 섞여 있고(`OrgChartPage.tsx`는 untracked), 의도적으로 되돌리지 않고 그대로 둠 — 내 커밋들에는 포함시키지 않았고 운영/테스트 배포에도 반영 안 됨. 다음 세션에서 `git status`를 보면 이 미커밋 변경이 남아있는 게 정상이니 당황하지 말 것(그 세션이 아직 커밋 안 한 것뿐).
+>
+> **미완료 항목(전자결제와 별개, 여전히 미해결)**: `KAKAO_REST_API_KEY` 테스트 환경 시크릿이 아직 미등록 — `wrangler secret put KAKAO_REST_API_KEY --env test`. 이게 없으면 테스트 환경에서는 근무지 지오코딩뿐 아니라 카카오 로그인(연동/재설정)도 `client_id=undefined`로 실패한다(운영은 이미 등록되어 있어 정상 동작 확인함. 다만 테스트 환경은 `VITE_REQUIRE_KAKAO_LINK=false`라 카카오 연동 자체가 강제되진 않음).
 
 ## 세션 시작/종료 규칙
 

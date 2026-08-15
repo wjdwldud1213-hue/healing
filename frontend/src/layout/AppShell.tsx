@@ -89,11 +89,11 @@ export function AppShell() {
   const isMobile = useIsMobile();
 
   const visibleMenu = useMemo(
-    () => filterMenuByPermissions(currentUser?.permissions ?? []),
+    () => filterMenuByPermissions(currentUser?.permissions ?? [], currentUser?.isExecutive ?? false),
     [currentUser],
   );
   const mobileTabItems = useMemo(
-    () => getMobileTabItems(currentUser?.permissions ?? []),
+    () => getMobileTabItems(currentUser?.permissions ?? [], currentUser?.isExecutive ?? false),
     [currentUser],
   );
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);

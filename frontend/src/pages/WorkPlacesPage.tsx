@@ -23,7 +23,7 @@ export function WorkPlacesPage() {
   const [workPlaces, setWorkPlaces] = useState<WorkPlace[]>([]);
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
-  const [radiusM, setRadiusM] = useState("100");
+  const [radiusM, setRadiusM] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showAddressSearch, setShowAddressSearch] = useState(false);
@@ -97,7 +97,7 @@ export function WorkPlacesPage() {
         <h3>근무지 추가</h3>
         <form onSubmit={handleCreate} className="stacked-form">
           <label>
-            지점명
+            근무지
             <input value={name} onChange={(e) => setName(e.target.value)} required />
           </label>
           <label>
@@ -140,7 +140,7 @@ export function WorkPlacesPage() {
         <table>
           <thead>
             <tr>
-              <th>지점명</th>
+              <th>근무지</th>
               <th>주소</th>
               <th>반경(m)</th>
               <th>상태</th>

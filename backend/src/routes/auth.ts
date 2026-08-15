@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { getDb } from "../lib/db";
 import { getPermissionCodes } from "../lib/permissions";
+import { getExecutiveThresholdSortOrder } from "../lib/approval";
 import { buildKakaoAuthorizeUrl, exchangeKakaoCodeForUserId } from "../lib/kakaoOAuth";
 import { employees, passwordResetTokens, sessions } from "../db/schema";
 import {
@@ -69,7 +70,11 @@ authRoute.post("/login", async (c) => {
   });
 
   const codes = await getPermissionCodes(db, employee.roleId);
-  return c.json({ employee: { ...publicEmployee(employee), permissions: Array.from(codes) } });
+  const executiveThreshold = await getExecutiveThresholdSortOrder(db);
+  const isExecutive = executiveThreshold != null && employee.jobGrade.sortOrder >= executiveThreshold;
+  return c.json({
+    employee: { ...publicEmployee(employee), permissions: Array.from(codes), isExecutive },
+  });
 });
 
 authRoute.post("/logout", async (c) => {
@@ -89,7 +94,9 @@ authRoute.get("/me", requireAuth, async (c) => {
     with: { department: true, jobGrade: true, jobTitle: true, role: true },
   });
   const codes = await getPermissionCodes(db, employee!.roleId);
-  return c.json({ ...publicEmployee(employee!), permissions: Array.from(codes) });
+  const executiveThreshold = await getExecutiveThresholdSortOrder(db);
+  const isExecutive = executiveThreshold != null && employee!.jobGrade.sortOrder >= executiveThreshold;
+  return c.json({ ...publicEmployee(employee!), permissions: Array.from(codes), isExecutive });
 });
 
 authRoute.post("/change-password", requireAuth, async (c) => {

@@ -211,8 +211,9 @@ export const leaveGrants = sqliteTable("leave_grants", {
 });
 
 // ── 연차 신청 ────────────────────────────────────────
-// status/decidedBy/decidedAt은 향후 결재(승인/반려) 기능이 그대로 이어받을 자리다.
-// 지금은 결재 기능이 없어 항상 PENDING으로 생성되고 아무도 바꾸지 않는다.
+// status/decidedBy/decidedAt은 결재(승인/반려) 기능이 도입된 뒤에도 그대로 사용된다.
+// 실제 결재 흐름(누가 언제 몇 차 결재했는지)은 documentId로 연결된 approval_documents/approval_steps에서 관리하고,
+// 최종 승인/반려 결과만 이 테이블에 반영된다(감사/조회 편의를 위한 비정규화).
 export const leaveRequests = sqliteTable(
   "leave_requests",
   {
@@ -230,10 +231,67 @@ export const leaveRequests = sqliteTable(
     requestedAt: text("requested_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     decidedBy: text("decided_by"),
     decidedAt: text("decided_at"),
+    // 이 신청을 만든 결재문서. 전자결제 도입 이전(레거시) 행은 NULL.
+    documentId: integer("document_id").references(() => approvalDocuments.id),
   },
   (t) => [
     check("leave_requests_days_check", sql`${t.days} > 0`),
     check("leave_requests_status_check", sql`${t.status} IN ('PENDING', 'APPROVED', 'REJECTED')`),
+  ],
+);
+
+// ── 전자결제(전자결재) ───────────────────────────────────
+// 문서 1건 = 결재 요청 1건. GENERAL은 제목+본문 자유양식, LEAVE는 연차 신청(leaveRequests에 상세 보관, documentId로 역참조)이다.
+// currentStepOrder는 지금 대기 중인 단계 번호를 가리킨다.
+export const approvalDocuments = sqliteTable(
+  "approval_documents",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    documentType: text("document_type", { enum: ["GENERAL", "LEAVE"] }).notNull(),
+    title: text("title").notNull(),
+    content: text("content"),
+    drafterId: text("drafter_id")
+      .notNull()
+      .references(() => employees.employeeId),
+    status: text("status", { enum: ["IN_PROGRESS", "APPROVED", "REJECTED", "CANCELED"] })
+      .notNull()
+      .default("IN_PROGRESS"),
+    currentStepOrder: integer("current_step_order").notNull().default(1),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => [
+    check("approval_documents_document_type_check", sql`${t.documentType} IN ('GENERAL','LEAVE')`),
+    check(
+      "approval_documents_status_check",
+      sql`${t.status} IN ('IN_PROGRESS','APPROVED','REJECTED','CANCELED')`,
+    ),
+  ],
+);
+
+// 문서 1건의 결재 단계들. stepOrder는 문서 내에서 1부터 연속일 필요는 없다 — 결재선 추천 로직이
+// 1차(부서 최고직급자)를 생략하는 경우 stepOrder=2(2차/최종) 단계 하나만 존재할 수 있다.
+export const approvalSteps = sqliteTable(
+  "approval_steps",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    documentId: integer("document_id")
+      .notNull()
+      .references(() => approvalDocuments.id),
+    stepOrder: integer("step_order").notNull(),
+    approverId: text("approver_id")
+      .notNull()
+      .references(() => employees.employeeId),
+    status: text("status", { enum: ["PENDING", "APPROVED", "REJECTED"] })
+      .notNull()
+      .default("PENDING"),
+    comment: text("comment"),
+    decidedAt: text("decided_at"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => [
+    uniqueIndex("approval_steps_document_step_idx").on(t.documentId, t.stepOrder),
+    check("approval_steps_status_check", sql`${t.status} IN ('PENDING','APPROVED','REJECTED')`),
   ],
 );
 
@@ -461,6 +519,29 @@ export const leaveGrantsRelations = relations(leaveGrants, ({ one }) => ({
 export const leaveRequestsRelations = relations(leaveRequests, ({ one }) => ({
   employee: one(employees, {
     fields: [leaveRequests.employeeId],
+    references: [employees.employeeId],
+  }),
+  document: one(approvalDocuments, {
+    fields: [leaveRequests.documentId],
+    references: [approvalDocuments.id],
+  }),
+}));
+
+export const approvalDocumentsRelations = relations(approvalDocuments, ({ one, many }) => ({
+  drafter: one(employees, {
+    fields: [approvalDocuments.drafterId],
+    references: [employees.employeeId],
+  }),
+  steps: many(approvalSteps),
+}));
+
+export const approvalStepsRelations = relations(approvalSteps, ({ one }) => ({
+  document: one(approvalDocuments, {
+    fields: [approvalSteps.documentId],
+    references: [approvalDocuments.id],
+  }),
+  approver: one(employees, {
+    fields: [approvalSteps.approverId],
     references: [employees.employeeId],
   }),
 }));

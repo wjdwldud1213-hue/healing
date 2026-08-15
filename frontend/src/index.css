@@ -1391,3 +1391,218 @@ button.login-btn:disabled {
   font-size: 11.5px;
   color: #b4b1a6;
 }
+
+/* ── 전자결재 공통: 상태 태그 ─────────────────────────── */
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.status-tag--pending {
+  background: var(--bg-muted);
+  color: var(--text-muted);
+}
+.status-tag--in_progress {
+  background: #eef2ff;
+  color: #4338ca;
+}
+.status-tag--approved {
+  background: #ecfdf5;
+  color: #059669;
+}
+.status-tag--rejected {
+  background: #fef2f2;
+  color: var(--danger);
+}
+.status-tag--canceled {
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* ── 전자결재: 결재선 미리보기/편집 ───────────────────────── */
+.approval-line-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.approval-line-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.approval-line-item:last-child {
+  border-bottom: none;
+}
+.approval-line-item--empty {
+  color: var(--text-muted);
+}
+.approval-line-item--empty .avatar {
+  background: var(--bg-muted);
+  color: var(--text-muted);
+}
+
+.approval-line-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.approval-line-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.approval-line-search {
+  position: relative;
+  margin-top: 10px;
+}
+
+.approval-candidate-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  max-height: 200px;
+  overflow-y: auto;
+  position: absolute;
+  z-index: 20;
+  width: 100%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.approval-candidate-list li button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+.approval-candidate-list li button:hover {
+  background: var(--bg-muted);
+}
+
+/* ── 전자결재: 결재 진행 현황 스텝 인디케이터 ───────────────── */
+.step-progress {
+  display: flex;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding: 8px 0 4px;
+}
+
+.step-progress-item {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.step-progress-line {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  margin: 0 4px;
+  margin-bottom: 34px;
+  min-width: 16px;
+}
+
+.step-progress-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 84px;
+  text-align: center;
+}
+
+.step-progress-circle {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+}
+.step-progress-node--approved .step-progress-circle {
+  background: #059669;
+  color: white;
+}
+.step-progress-node--rejected .step-progress-circle {
+  background: var(--danger);
+  color: white;
+}
+.step-progress-node--pending .step-progress-circle {
+  background: white;
+  border: 1.5px solid var(--border);
+}
+.step-progress-node--empty .step-progress-circle {
+  color: var(--text-muted);
+}
+
+.step-progress-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* ── 전자결재: 결재함(목록+상세 결합) ─────────────────────── */
+.approval-inbox-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  flex-wrap: wrap;
+}
+
+.approval-inbox-card-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.approval-inbox-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.approval-inbox-card-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.approval-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px 20px;
+  margin-bottom: 12px;
+}
+.approval-detail-grid dt {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.approval-detail-grid dd {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+}
+

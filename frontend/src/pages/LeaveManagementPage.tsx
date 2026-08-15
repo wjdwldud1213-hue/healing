@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api/client";
 import { Modal } from "../components/Modal";
+import { ApprovalLinePicker } from "../components/ApprovalLinePicker";
+import type { ApprovalLineItem } from "../components/ApprovalLinePicker";
+import { ApprovalDocumentDetailModal } from "../components/ApprovalDocumentDetailModal";
 import { useAuth } from "../auth/AuthContext";
-import type { LeaveBalance, LeaveRequest } from "../types";
+import type { LeaveBalance, LeaveRequest, RecommendedApprovalStep } from "../types";
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: "신청중",
@@ -26,12 +29,14 @@ export function LeaveManagementPage() {
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [showBasisModal, setShowBasisModal] = useState(false);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [days, setDays] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [approvalLine, setApprovalLine] = useState<ApprovalLineItem[]>([]);
 
   function load() {
     api.get<LeaveBalance[]>("/leave/balance").then(setBalances).catch((e) => setError(e.message));
@@ -50,6 +55,18 @@ export function LeaveManagementPage() {
     setEndDate(value);
     const calculated = calcInclusiveDays(startDate, value);
     if (calculated != null) setDays(String(calculated));
+  }
+
+  function openApplyModal() {
+    setShowApplyModal(true);
+    api
+      .get<RecommendedApprovalStep[]>("/approval/recommend-line")
+      .then((slots) =>
+        setApprovalLine(
+          slots.filter((s) => s.approver).map((s) => ({ stepOrder: s.stepOrder, approver: s.approver! })),
+        ),
+      )
+      .catch(() => setApprovalLine([]));
   }
 
   function closeApplyModal() {
@@ -96,7 +113,7 @@ export function LeaveManagementPage() {
       </p>
 
       <div className="toolbar">
-        <button type="button" className="toolbar-end" onClick={() => setShowApplyModal(true)}>
+        <button type="button" className="toolbar-end" onClick={openApplyModal}>
           연차 신청
         </button>
         <button type="button" onClick={() => setShowBasisModal(true)}>
@@ -136,6 +153,7 @@ export function LeaveManagementPage() {
                 <th>사유</th>
                 <th>상태</th>
                 <th>신청일</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -148,6 +166,13 @@ export function LeaveManagementPage() {
                   <td>{r.reason ?? "-"}</td>
                   <td>{STATUS_LABEL[r.status]}</td>
                   <td>{r.requestedAt}</td>
+                  <td>
+                    {r.documentId != null && (
+                      <button type="button" onClick={() => setSelectedDocumentId(r.documentId)}>
+                        상세
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -157,54 +182,68 @@ export function LeaveManagementPage() {
 
       {showApplyModal && (
         <Modal onClose={closeApplyModal}>
-          <div className="card">
+          <div className="card" style={{ maxWidth: 760 }}>
             <h3>연차 신청</h3>
-            <form onSubmit={handleSubmit} className="stacked-form">
-              <label>
-                시작일
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => handleStartDateChange(e.target.value)}
-                  required
-                />
-              </label>
-              <label>
-                종료일
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => handleEndDateChange(e.target.value)}
-                  required
-                />
-              </label>
-              <label>
-                일수 (자동 계산, 필요 시 수정 가능)
-                <input
-                  type="number"
-                  min="0.5"
-                  step="0.5"
-                  value={days}
-                  onChange={(e) => setDays(e.target.value)}
-                  required
-                />
-              </label>
-              <label>
-                사유 (선택)
-                <input value={reason} onChange={(e) => setReason(e.target.value)} />
-              </label>
-              {error && <p className="error">{error}</p>}
-              <div className="form-actions">
-                <button type="submit" disabled={loading}>
-                  신청
-                </button>
-                <button type="button" onClick={closeApplyModal}>
-                  취소
-                </button>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 24 }}>
+              <form onSubmit={handleSubmit} className="stacked-form" style={{ maxWidth: "none" }}>
+                <label>
+                  시작일
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => handleStartDateChange(e.target.value)}
+                    required
+                  />
+                </label>
+                <label>
+                  종료일
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => handleEndDateChange(e.target.value)}
+                    required
+                  />
+                </label>
+                <label>
+                  일수 (자동 계산, 필요 시 수정 가능)
+                  <input
+                    type="number"
+                    min="0.5"
+                    step="0.5"
+                    value={days}
+                    onChange={(e) => setDays(e.target.value)}
+                    required
+                  />
+                </label>
+                <label>
+                  사유 (선택)
+                  <input value={reason} onChange={(e) => setReason(e.target.value)} />
+                </label>
+                {error && <p className="error">{error}</p>}
+                <div className="form-actions">
+                  <button type="submit" disabled={loading}>
+                    신청
+                  </button>
+                  <button type="button" onClick={closeApplyModal}>
+                    취소
+                  </button>
+                </div>
+              </form>
+              <div>
+                <h4 style={{ marginBottom: 8 }}>결재선 미리보기</h4>
+                <ApprovalLinePicker items={approvalLine} onChange={() => {}} readOnly />
               </div>
-            </form>
+            </div>
           </div>
         </Modal>
+      )}
+
+      {selectedDocumentId != null && (
+        <ApprovalDocumentDetailModal
+          documentId={selectedDocumentId}
+          onClose={() => setSelectedDocumentId(null)}
+          onChanged={load}
+        />
       )}
 
       {showBasisModal && (

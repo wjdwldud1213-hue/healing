@@ -54,8 +54,10 @@ export type Employee = {
   jobTitle: JobTitle | null;
   role: Role;
   tempPassword?: string;
-  /** /auth/me 응답에만 포함된다 (로그인한 사용자 본인의 권한 코드 목록) */
+  /** /auth/me, /auth/login 응답에만 포함된다 (로그인한 사용자 본인의 권한 코드 목록) */
   permissions?: string[];
+  /** /auth/me, /auth/login 응답에만 포함된다 (상무 이상 직급 — 전자결재 전체 문서함 열람 가능 여부) */
+  isExecutive?: boolean;
 };
 
 export type LeaveBalance = {
@@ -92,6 +94,8 @@ export type LeaveRequest = {
   requestedAt: string;
   decidedBy: string | null;
   decidedAt: string | null;
+  /** 이 신청을 만든 결재문서 id. 전자결제 도입 이전(레거시) 행은 null. */
+  documentId: number | null;
 };
 
 export type WorkPlace = {
@@ -134,3 +138,58 @@ export type AttendanceLog = {
   approvedAt: string | null;
   createdAt: string;
 };
+
+// ── 전자결제(전자결재) ───────────────────────────────────
+export type ApprovalDocumentType = "GENERAL" | "LEAVE";
+export type ApprovalDocumentStatus = "IN_PROGRESS" | "APPROVED" | "REJECTED" | "CANCELED";
+export type ApprovalStepStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export type ApprovalPersonRef = { employeeId: string; name: string };
+
+export type ApprovalStep = {
+  id: number;
+  documentId: number;
+  stepOrder: number;
+  approverId: string;
+  status: ApprovalStepStatus;
+  comment: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+  approver: ApprovalPersonRef;
+};
+
+export type ApprovalDocument = {
+  id: number;
+  documentType: ApprovalDocumentType;
+  title: string;
+  content: string | null;
+  drafterId: string;
+  status: ApprovalDocumentStatus;
+  currentStepOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  drafter: ApprovalPersonRef;
+  steps: ApprovalStep[];
+};
+
+export type ApprovalDocumentDetail = ApprovalDocument & { leave: LeaveRequest | null };
+
+export type ApprovalInboxItem = {
+  documentId: number;
+  documentType: ApprovalDocumentType;
+  title: string;
+  documentStatus: ApprovalDocumentStatus;
+  drafter: ApprovalPersonRef;
+  stepOrder: number;
+  stepStatus: ApprovalStepStatus;
+  createdAt: string;
+};
+
+export type ApproverCandidate = {
+  employeeId: string;
+  name: string;
+  departmentName: string;
+  jobGradeName: string;
+};
+
+export type RecommendedApprovalStep = { stepOrder: number; approver: ApproverCandidate | null };

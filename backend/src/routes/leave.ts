@@ -6,7 +6,8 @@ import { requireAuth } from "../middleware/auth";
 import { requirePermission } from "../middleware/permission";
 import { getPermissionCodes } from "../lib/permissions";
 import { runLeaveAccrualBatch } from "../lib/leaveAccrual";
-import { LeaveApprovalError, approveLeaveRequest, rejectLeaveRequest } from "../lib/leaveApproval";
+import { ApprovalError, createApprovalDocument } from "../lib/approval";
+import { recommendDefaultApprovalLine } from "../lib/approvalLine";
 import type { Db } from "../lib/db";
 import type { AppEnv } from "../types";
 
@@ -57,6 +58,10 @@ leaveRoute.get("/requests", async (c) => {
   return c.json(rows);
 });
 
+// 연차 신청은 전자결제 문서(documentType="LEAVE")의 한 종류로 생성된다. 결재선은
+// recommendDefaultApprovalLine()이 자동으로 정하며(부서 최고직급자 → 물류부는 상무/그 외는 실장),
+// 이번 1단계에서는 이 화면에 결재선을 직접 편집하는 UI가 없다 — 추천 결재선이 비면(예: 전사
+// 최고직급자 본인이 신청하는 경우) 신청 자체가 막힌다는 뜻이며, 이는 알려진 범위 밖 제약이다.
 leaveRoute.post("/requests", async (c) => {
   const employeeId = c.get("currentUserId")!;
   const body = await c.req
@@ -72,19 +77,30 @@ leaveRoute.post("/requests", async (c) => {
   if (days == null || days <= 0) return c.json({ error: "일수는 0보다 커야 합니다." }, 400);
 
   const db = getDb(c.env.DB);
-  const [created] = await db
-    .insert(leaveRequests)
-    .values({
-      employeeId,
-      startDate,
-      endDate,
-      days,
-      reason: body.reason || null,
-      status: "PENDING",
-    })
-    .returning();
+  const steps = await recommendDefaultApprovalLine(db, employeeId);
+  if (steps.length === 0) {
+    return c.json(
+      { error: "자동으로 결재선을 추천할 수 없습니다. 관리자에게 문의하세요." },
+      400,
+    );
+  }
 
-  return c.json(created, 201);
+  try {
+    const doc = await createApprovalDocument(db, {
+      drafterId: employeeId,
+      documentType: "LEAVE",
+      title: `연차 신청 (${startDate}~${endDate})`,
+      steps,
+      leave: { startDate, endDate, days, reason: body.reason || null },
+    });
+    const created = await db.query.leaveRequests.findFirst({
+      where: eq(leaveRequests.documentId, doc.id),
+    });
+    return c.json(created, 201);
+  } catch (e) {
+    if (e instanceof ApprovalError) return c.json({ error: e.message }, e.status);
+    throw e;
+  }
 });
 
 // 매일 자동으로 도는 배치(scheduled)와 동일한 로직을 관리자가 수동으로도 실행할 수 있게 해둔다.
@@ -93,42 +109,4 @@ leaveRoute.post("/run-accrual", requirePermission("LEAVE_MANAGE"), async (c) => 
   const db = getDb(c.env.DB);
   const result = await runLeaveAccrualBatch(db);
   return c.json(result);
-});
-
-// ── 관리자 승인/반려 (지금은 관리자가 직접 처리, 나중에 결재 기능이 이 자리를 대체) ──
-leaveRoute.get("/admin/requests", requirePermission("LEAVE_APPROVE"), async (c) => {
-  const db = getDb(c.env.DB);
-  const rows = await db.query.leaveRequests.findMany({
-    where: eq(leaveRequests.status, "PENDING"),
-    orderBy: (r, { asc }) => [asc(r.requestedAt)],
-  });
-  return c.json(rows);
-});
-
-leaveRoute.post("/admin/requests/:id/approve", requirePermission("LEAVE_APPROVE"), async (c) => {
-  const id = Number(c.req.param("id"));
-  if (!Number.isInteger(id)) return c.json({ error: "잘못된 요청 ID입니다." }, 400);
-  const db = getDb(c.env.DB);
-  const actorId = c.get("currentUserId");
-  try {
-    const updated = await approveLeaveRequest(db, id, actorId);
-    return c.json(updated);
-  } catch (e) {
-    if (e instanceof LeaveApprovalError) return c.json({ error: e.message }, 400);
-    throw e;
-  }
-});
-
-leaveRoute.post("/admin/requests/:id/reject", requirePermission("LEAVE_APPROVE"), async (c) => {
-  const id = Number(c.req.param("id"));
-  if (!Number.isInteger(id)) return c.json({ error: "잘못된 요청 ID입니다." }, 400);
-  const db = getDb(c.env.DB);
-  const actorId = c.get("currentUserId");
-  try {
-    const updated = await rejectLeaveRequest(db, id, actorId);
-    return c.json(updated);
-  } catch (e) {
-    if (e instanceof LeaveApprovalError) return c.json({ error: e.message }, 400);
-    throw e;
-  }
 });

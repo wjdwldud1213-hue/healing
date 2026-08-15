@@ -5,6 +5,8 @@ export type MenuChild = {
   badge?: number | null;
   /** 이 중 하나라도 있으면 노출. 없으면(undefined) 로그인만 하면 누구나 볼 수 있음 */
   anyOfPermissions?: string[];
+  /** true면 상무 이상 직급(currentUser.isExecutive)에게만 노출된다 — 권한 코드가 아니라 직급 기준. */
+  executiveOnly?: boolean;
   /** true면 모바일 하단 탭바에 바로가기로 노출된다. 어떤 항목을 넣을지는 이 값만 바꾸면 됨. */
   mobileTab?: boolean;
 };
@@ -13,6 +15,7 @@ export type MenuChild = {
 export const MOBILE_TAB_ICONS: Record<string, string> = {
   clock: '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>',
   vacation: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  approvalInbox: '<path d="M9 11l3 3L22 4"/><path d="M21 11v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h11"/>',
 };
 
 export type MenuGroup = {
@@ -50,6 +53,16 @@ export const menuData: MenuGroup[] = [
     ],
   },
   {
+    id: "approval",
+    label: "전자결재",
+    icon: '<path d="M9 11l3 3L22 4"/><path d="M21 11v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h11"/>',
+    children: [
+      { id: "approvalDrafts", label: "기안함", path: "/approval/drafts" },
+      { id: "approvalInbox", label: "결재함", path: "/approval/inbox", mobileTab: true },
+      { id: "approvalAll", label: "전체 문서함", path: "/approval/all", executiveOnly: true },
+    ],
+  },
+  {
     id: "system",
     label: "시스템관리",
     icon: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
@@ -63,12 +76,6 @@ export const menuData: MenuGroup[] = [
       },
       { id: "roleManage", label: "권한 관리", path: "/roles", anyOfPermissions: ["ROLE_MANAGE"] },
       {
-        id: "leaveApprove",
-        label: "연차 승인",
-        path: "/leave/admin",
-        anyOfPermissions: ["LEAVE_APPROVE"],
-      },
-      {
         id: "workPlaceManage",
         label: "근무지 관리",
         path: "/work-places",
@@ -78,21 +85,22 @@ export const menuData: MenuGroup[] = [
   },
 ];
 
-/** 현재 사용자의 권한 목록으로 볼 수 있는 자식만 남긴 메뉴 트리를 만든다 */
-export function filterMenuByPermissions(permissions: string[]): MenuGroup[] {
+/** 현재 사용자의 권한 목록/직급으로 볼 수 있는 자식만 남긴 메뉴 트리를 만든다 */
+export function filterMenuByPermissions(permissions: string[], isExecutive = false): MenuGroup[] {
   return menuData
     .map((group) => ({
       ...group,
-      children: group.children.filter(
-        (child) => !child.anyOfPermissions || child.anyOfPermissions.some((p) => permissions.includes(p)),
-      ),
+      children: group.children.filter((child) => {
+        if (child.executiveOnly && !isExecutive) return false;
+        return !child.anyOfPermissions || child.anyOfPermissions.some((p) => permissions.includes(p));
+      }),
     }))
     .filter((group) => group.children.length > 0);
 }
 
-/** 모바일 하단 탭바에 노출할 항목만 권한 필터링해서 뽑는다 (menuData 순서를 그대로 따름) */
-export function getMobileTabItems(permissions: string[]): MenuChild[] {
-  return filterMenuByPermissions(permissions)
+/** 모바일 하단 탭바에 노출할 항목만 권한/직급 필터링해서 뽑는다 (menuData 순서를 그대로 따름) */
+export function getMobileTabItems(permissions: string[], isExecutive = false): MenuChild[] {
+  return filterMenuByPermissions(permissions, isExecutive)
     .flatMap((group) => group.children)
     .filter((child) => child.mobileTab);
 }

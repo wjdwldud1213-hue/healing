@@ -17,10 +17,12 @@ import { ReferenceDataPage } from "./pages/ReferenceDataPage";
 import { RolesPage } from "./pages/RolesPage";
 import { MyProfilePage } from "./pages/MyProfilePage";
 import { LeaveManagementPage } from "./pages/LeaveManagementPage";
-import { AdminLeaveRequestsPage } from "./pages/AdminLeaveRequestsPage";
 import { AttendanceHistoryPage } from "./pages/AttendanceHistoryPage";
 import { AttendanceClockPage } from "./pages/AttendanceClockPage";
 import { WorkPlacesPage } from "./pages/WorkPlacesPage";
+import { ApprovalDraftsPage } from "./pages/ApprovalDraftsPage";
+import { ApprovalInboxPage } from "./pages/ApprovalInboxPage";
+import { ApprovalAllDocumentsPage } from "./pages/ApprovalAllDocumentsPage";
 
 const CAN_VIEW_EMPLOYEE_LIST = ["EMPLOYEE_READ_ALL", "EMPLOYEE_READ_DEPARTMENT"];
 
@@ -38,6 +40,9 @@ export default function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/my-profile" element={<MyProfilePage />} />
               <Route path="/leave" element={<LeaveManagementPage />} />
+              <Route path="/approval/drafts" element={<ApprovalDraftsPage />} />
+              <Route path="/approval/inbox" element={<ApprovalInboxPage />} />
+              <Route path="/approval/all" element={<ApprovalAllDocumentsPage />} />
               <Route path="/attendance-history" element={<AttendanceHistoryPage />} />
               <Route path="/attendance/clock" element={<AttendanceClockPage />} />
               <Route path="/change-password" element={<ChangePasswordPage />} />
@@ -56,9 +61,6 @@ export default function App() {
               </Route>
               <Route element={<RequirePermission anyOf={["ROLE_MANAGE"]} />}>
                 <Route path="/roles" element={<RolesPage />} />
-              </Route>
-              <Route element={<RequirePermission anyOf={["LEAVE_APPROVE"]} />}>
-                <Route path="/leave/admin" element={<AdminLeaveRequestsPage />} />
               </Route>
               <Route element={<RequirePermission anyOf={["ATTENDANCE_MANAGE"]} />}>
                 <Route path="/work-places" element={<WorkPlacesPage />} />

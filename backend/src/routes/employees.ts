@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import bcrypt from "bcryptjs";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { getDb } from "../lib/db";
 import { generateEmployeeId, generateTempPassword } from "../lib/employeeId";
 import { getPermissionCodes } from "../lib/permissions";
@@ -62,8 +62,9 @@ function stripPrivateFields<T extends { passwordHash?: unknown; viewPinHash?: un
   return rest;
 }
 
-// 화면 단위뿐 아니라 여기(API)에서도 매번 확인한다 — 프론트가 메뉴만 숨기는 방식은 쓰지 않는다.
-// 일반직원은 본인 것만, 부서관리자는 소속 부서만, 시스템관리자는 전체를 볼 수 있다.
+// 부서관리자는 소속 부서만, 시스템관리자(EMPLOYEE_READ_ALL)는 전체를 제한 없이 볼 수 있다.
+// 그 외(READ 권한 없는 일반직원)는 조직도 등에서 전사 인력 구조를 볼 수 있어야 하므로 부서
+// 제한 없이 전체를 조회하되, 마스킹(아래 canSeeAll)으로 개인정보만 가려서 내려준다.
 employeesRoute.get("/", async (c) => {
   const db = getDb(c.env.DB);
   const actorId = c.get("currentUserId")!;
@@ -81,8 +82,10 @@ employeesRoute.get("/", async (c) => {
     // 제한 없음
   } else if (codes.has("EMPLOYEE_READ_DEPARTMENT")) {
     conditions.push(eq(employees.departmentId, actor.departmentId));
-  } else {
-    return c.json({ error: "직원 목록을 조회할 권한이 없습니다." }, 403);
+  } else if (!status) {
+    // 마스킹 대상 조회자는 employmentStatus를 못 보므로(null), 퇴사자 제외를 클라이언트가
+    // 판단할 수 없다 — 서버가 기본적으로 퇴사자를 응답에서 제외한다(조직도 등 전사 조회용).
+    conditions.push(ne(employees.employmentStatus, "RESIGNED"));
   }
 
   const rows = await db.query.employees.findMany({

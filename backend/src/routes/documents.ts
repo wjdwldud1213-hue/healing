@@ -84,6 +84,8 @@ documentsRoute.post("/", async (c) => {
   const file = form.get("file");
   const category = form.get("category");
   const visibility = form.get("visibility");
+  const validFrom = form.get("validFrom");
+  const validUntil = form.get("validUntil");
 
   if (!(file instanceof File)) return c.json({ error: "파일을 선택하세요." }, 400);
   if (file.size === 0) return c.json({ error: "빈 파일은 업로드할 수 없습니다." }, 400);
@@ -97,10 +99,19 @@ documentsRoute.post("/", async (c) => {
   if (visibility !== "PUBLIC" && visibility !== "DEPARTMENT" && visibility !== "ADMIN") {
     return c.json({ error: "공개범위를 선택하세요." }, 400);
   }
+  if (
+    (typeof validFrom === "string" && validFrom) &&
+    (typeof validUntil === "string" && validUntil) &&
+    validFrom > validUntil
+  ) {
+    return c.json({ error: "유효기간 종료일은 시작일보다 빠를 수 없습니다." }, 400);
+  }
 
   // 프론트가 분류별 고정 공개범위를 선택 못 하게 막아도, 여기서 다시 강제해야 우회를 막는다.
   const fixedVisibility = FIXED_VISIBILITY_BY_CATEGORY[category as Category];
   const finalVisibility = fixedVisibility ?? visibility;
+  // 유효기간은 보건증에서만 의미가 있다 — 다른 분류로 보내져도 서버가 무시하고 null로 둔다.
+  const hasValidPeriod = category === "보건증";
 
   const storageKey = `${actorId}/${crypto.randomUUID()}-${file.name}`;
   await c.env.DOCUMENTS.put(storageKey, await file.arrayBuffer(), {
@@ -117,6 +128,8 @@ documentsRoute.post("/", async (c) => {
       mimeType: file.type,
       fileSize: file.size,
       visibility: finalVisibility,
+      validFrom: hasValidPeriod && typeof validFrom === "string" && validFrom ? validFrom : null,
+      validUntil: hasValidPeriod && typeof validUntil === "string" && validUntil ? validUntil : null,
     })
     .returning();
 

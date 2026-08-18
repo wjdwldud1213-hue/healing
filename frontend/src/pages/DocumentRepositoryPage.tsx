@@ -28,6 +28,8 @@ function UploadDocumentModal({ onDone }: { onDone: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [category, setCategory] = useState<DocumentCategory>("주민등록등본");
   const [visibility, setVisibility] = useState<DocumentVisibility>("ADMIN");
+  const [validFrom, setValidFrom] = useState("");
+  const [validUntil, setValidUntil] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const fixedVisibility = FIXED_VISIBILITY_BY_CATEGORY[category];
@@ -45,12 +47,20 @@ function UploadDocumentModal({ onDone }: { onDone: () => void }) {
       setError("파일을 선택하세요.");
       return;
     }
+    if (validFrom && validUntil && validFrom > validUntil) {
+      setError("유효기간 종료일은 시작일보다 빠를 수 없습니다.");
+      return;
+    }
     setSubmitting(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("category", category);
       formData.append("visibility", visibility);
+      if (category === "보건증") {
+        if (validFrom) formData.append("validFrom", validFrom);
+        if (validUntil) formData.append("validUntil", validUntil);
+      }
       await api.upload("/documents", formData);
       onDone();
     } catch (err) {
@@ -99,6 +109,18 @@ function UploadDocumentModal({ onDone }: { onDone: () => void }) {
           <p className="hint">
             "{CATEGORY_LABEL[category]}"는 공개범위가 {VISIBILITY_LABEL[fixedVisibility]}로 고정됩니다.
           </p>
+        )}
+        {category === "보건증" && (
+          <>
+            <label>
+              유효기간 시작일
+              <input type="date" value={validFrom} onChange={(e) => setValidFrom(e.target.value)} />
+            </label>
+            <label>
+              유효기간 종료일
+              <input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+            </label>
+          </>
         )}
         {error && <p className="error">{error}</p>}
         <div className="form-actions">
@@ -216,6 +238,7 @@ export function DocumentRepositoryPage() {
             <th>공개범위</th>
             <th></th>
             <th>업로드일</th>
+            <th>유효기간</th>
             <th></th>
           </tr>
         </thead>
@@ -232,6 +255,9 @@ export function DocumentRepositoryPage() {
                 </a>
               </td>
               <td>{doc.createdAt.slice(0, 10)}</td>
+              <td>
+                {doc.validFrom && doc.validUntil ? `${doc.validFrom} ~ ${doc.validUntil}` : "-"}
+              </td>
               <td>
                 {(doc.employeeId === currentUser?.employeeId || canWrite) && (
                   <button type="button" onClick={() => handleDelete(doc)}>

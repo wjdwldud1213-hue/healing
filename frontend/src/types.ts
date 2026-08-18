@@ -213,6 +213,8 @@ export type StoredDocument = {
   mimeType: string;
   fileSize: number;
   visibility: DocumentVisibility;
+  validFrom: string | null;
+  validUntil: string | null;
   createdAt: string;
   employee: { employeeId: string; name: string; department: { id: number; name: string } };
 };

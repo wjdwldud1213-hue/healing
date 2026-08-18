@@ -459,6 +459,9 @@ export const documents = sqliteTable(
     mimeType: text("mime_type").notNull(),
     fileSize: integer("file_size").notNull(),
     visibility: text("visibility", { enum: ["PUBLIC", "DEPARTMENT", "ADMIN"] }).notNull(),
+    // 보건증 등 유효기간이 있는 서류에만 의미 있는 값(그 외 분류는 항상 null).
+    validFrom: text("valid_from"),
+    validUntil: text("valid_until"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (t) => [

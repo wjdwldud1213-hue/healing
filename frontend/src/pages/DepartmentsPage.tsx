@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { useDragReorder } from "../lib/dragReorder";
 import type { Department, Employee } from "../types";
 
 export function DepartmentsPage() {
@@ -9,7 +10,6 @@ export function DepartmentsPage() {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [draggedId, setDraggedId] = useState<number | null>(null);
 
   function load() {
     api.get<Department[]>("/departments").then(setDepartments).catch((e) => setError(e.message));
@@ -49,42 +49,18 @@ export function DepartmentsPage() {
     load();
   }
 
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  }
-
-  async function handleDrop(targetId: number) {
-    if (draggedId == null || draggedId === targetId) {
-      setDraggedId(null);
-      return;
-    }
-    const fromIndex = departments.findIndex((d) => d.id === draggedId);
-    const toIndex = departments.findIndex((d) => d.id === targetId);
-    setDraggedId(null);
-    if (fromIndex === -1 || toIndex === -1) return;
-
-    const reordered = [...departments];
-    const [moved] = reordered.splice(fromIndex, 1);
-    reordered.splice(toIndex, 0, moved);
-    setDepartments(reordered);
-
-    const changed = reordered
-      .map((d, index) => ({ d, index }))
-      .filter(({ d, index }) => d.sortOrder !== index);
-    await Promise.all(
-      changed.map(({ d, index }) => api.patch(`/departments/${d.id}`, { sortOrder: index })),
-    );
+  const { draggedId, handleDragHandleMouseDown } = useDragReorder(departments, setDepartments, async (changed) => {
+    await Promise.all(changed.map((c) => api.patch(`/departments/${c.id}`, { sortOrder: c.sortOrder })));
     load();
-  }
+  });
 
   return (
     <section>
       <h2>부서 관리</h2>
       <p className="hint">
         부서코드는 A~Z 중 한 글자만 배정할 수 있고, 한 번 쓰면 다른 부서에 다시 배정할 수
-        없습니다. (이미 발급된 사번의 의미가 바뀌지 않도록 하기 위함) 행을 드래그해서 순서를
-        바꿀 수 있습니다.
+        없습니다. (이미 발급된 사번의 의미가 바뀌지 않도록 하기 위함) ⠿ 아이콘을 드래그해서
+        순서를 바꿀 수 있습니다.
       </p>
 
       <form onSubmit={handleCreate} className="inline-form">
@@ -114,18 +90,7 @@ export function DepartmentsPage() {
         </thead>
         <tbody>
           {departments.map((d) => (
-            <tr
-              key={d.id}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.effectAllowed = "move";
-                setDraggedId(d.id);
-              }}
-              onDragOver={handleDragOver}
-              onDrop={() => handleDrop(d.id)}
-              onDragEnd={() => setDraggedId(null)}
-              style={{ opacity: draggedId === d.id ? 0.4 : 1, cursor: "grab" }}
-            >
+            <tr key={d.id} data-drag-id={d.id} style={{ opacity: draggedId === d.id ? 0.4 : 1 }}>
               <td>{d.code}</td>
               <td>{d.name}</td>
               <td>
@@ -147,7 +112,13 @@ export function DepartmentsPage() {
                   {d.isActive ? "비활성화" : "다시 사용"}
                 </button>
               </td>
-              <td aria-hidden="true">⠿</td>
+              <td
+                aria-hidden="true"
+                onMouseDown={handleDragHandleMouseDown(d.id)}
+                style={{ cursor: "grab", userSelect: "none" }}
+              >
+                ⠿
+              </td>
             </tr>
           ))}
         </tbody>

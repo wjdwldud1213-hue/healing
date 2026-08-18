@@ -189,6 +189,29 @@ employeesRoute.post("/:id/set-view-pin", async (c) => {
   return c.json({ ok: true });
 });
 
+// 직원 수정 화면에서 급여/연차일수를 보여주기 위한 현재값 조회. 급여는 가장 최근 이력,
+// 연차는 올해 employee_leave_balances 집계(자동발생 배치가 입사일 기준으로 이미 계산해둔 값)를
+// 그대로 내려준다 — 그래서 관리자가 직접 입력하지 않아도 입사일 기준 계산값이 노출된다.
+employeesRoute.get("/:id/compensation-leave-summary", requirePermission("EMPLOYEE_WRITE"), async (c) => {
+  const targetId = c.req.param("id");
+  const db = getDb(c.env.DB);
+  const currentYear = new Date().getFullYear();
+
+  const latestCompensation = await db.query.employeeCompensations.findFirst({
+    where: eq(employeeCompensations.employeeId, targetId),
+    orderBy: (comp, { desc }) => [desc(comp.effectiveDate), desc(comp.id)],
+  });
+  const currentYearBalance = await db.query.employeeLeaveBalances.findFirst({
+    where: and(eq(employeeLeaveBalances.employeeId, targetId), eq(employeeLeaveBalances.year, currentYear)),
+  });
+
+  return c.json({
+    currentSalary: latestCompensation?.baseSalary ?? null,
+    currentYearGrantedDays: currentYearBalance?.grantedDays ?? 0,
+    currentYear,
+  });
+});
+
 employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
   const body = await c.req
     .json<{
@@ -399,10 +422,8 @@ employeesRoute.patch("/:id", async (c) => {
   }
   const baseSalary = typeof body.baseSalary === "number" ? body.baseSalary : undefined;
   if (baseSalary != null && baseSalary < 0) return c.json({ error: "급여는 0 이상이어야 합니다." }, 400);
+  // 현재 표시값과의 차이(음수면 조정 차감)만 넘어온다 — 0이면 값이 그대로라는 뜻이라 무시한다.
   const additionalLeaveDays = typeof body.additionalLeaveDays === "number" ? body.additionalLeaveDays : undefined;
-  if (additionalLeaveDays != null && additionalLeaveDays <= 0) {
-    return c.json({ error: "연차일수는 0보다 커야 합니다." }, 400);
-  }
 
   // 이름은 발급 후 수정 불가 — PATCH 바디에 실려와도 절대 반영하지 않는다(관리자가 직접
   // API를 호출해도 우회 불가하도록 UI가 아니라 여기서 막는다).
@@ -464,8 +485,8 @@ employeesRoute.patch("/:id", async (c) => {
       createdBy: actorId,
     });
   }
-  if (additionalLeaveDays != null) {
-    await grantLeave(db, employeeId, Number(today.slice(0, 4)), additionalLeaveDays, "관리자 조정 부여", today, actorId);
+  if (additionalLeaveDays) {
+    await grantLeave(db, employeeId, Number(today.slice(0, 4)), additionalLeaveDays, "관리자 조정", today, actorId);
   }
 
   const updated = await db.query.employees.findFirst({

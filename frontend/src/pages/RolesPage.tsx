@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api/client";
 import { Modal } from "../components/Modal";
+import { useDragReorder } from "../lib/dragReorder";
 import type { Permission, Role } from "../types";
 
 export function RolesPage() {
@@ -10,7 +11,6 @@ export function RolesPage() {
   const [newRoleName, setNewRoleName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [draggedId, setDraggedId] = useState<number | null>(null);
 
   const [settingsRole, setSettingsRole] = useState<Role | null>(null);
   const [editName, setEditName] = useState("");
@@ -51,34 +51,10 @@ export function RolesPage() {
     loadRoles();
   }
 
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  }
-
-  async function handleDrop(targetId: number) {
-    if (draggedId == null || draggedId === targetId) {
-      setDraggedId(null);
-      return;
-    }
-    const fromIndex = roles.findIndex((r) => r.id === draggedId);
-    const toIndex = roles.findIndex((r) => r.id === targetId);
-    setDraggedId(null);
-    if (fromIndex === -1 || toIndex === -1) return;
-
-    const reordered = [...roles];
-    const [moved] = reordered.splice(fromIndex, 1);
-    reordered.splice(toIndex, 0, moved);
-    setRoles(reordered);
-
-    const changed = reordered
-      .map((r, index) => ({ r, index }))
-      .filter(({ r, index }) => r.sortOrder !== index);
-    await Promise.all(
-      changed.map(({ r, index }) => api.patch(`/roles/${r.id}`, { sortOrder: index })),
-    );
+  const { draggedId, handleDragHandleMouseDown } = useDragReorder(roles, setRoles, async (changed) => {
+    await Promise.all(changed.map((c) => api.patch(`/roles/${c.id}`, { sortOrder: c.sortOrder })));
     loadRoles();
-  }
+  });
 
   function openSettings(role: Role) {
     setSettingsRole(role);
@@ -128,7 +104,7 @@ export function RolesPage() {
       <h2>권한 관리</h2>
       <p className="hint">
         역할을 추가하고, "설정"에서 이름/설명과 권한(메뉴/기능)을 함께 관리합니다. 여기서 바뀐
-        내용은 즉시 모든 사용자의 접근 권한에 반영됩니다. 행을 드래그해서 순서를 바꿀 수
+        내용은 즉시 모든 사용자의 접근 권한에 반영됩니다. ⠿ 아이콘을 드래그해서 순서를 바꿀 수
         있습니다.
       </p>
 
@@ -157,18 +133,7 @@ export function RolesPage() {
         </thead>
         <tbody>
           {roles.map((r) => (
-            <tr
-              key={r.id}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.effectAllowed = "move";
-                setDraggedId(r.id);
-              }}
-              onDragOver={handleDragOver}
-              onDrop={() => handleDrop(r.id)}
-              onDragEnd={() => setDraggedId(null)}
-              style={{ opacity: draggedId === r.id ? 0.4 : 1, cursor: "grab" }}
-            >
+            <tr key={r.id} data-drag-id={r.id} style={{ opacity: draggedId === r.id ? 0.4 : 1 }}>
               <td>{r.name}</td>
               <td>{r.description ?? "-"}</td>
               <td>{r.isActive ? "사용중" : "비활성"}</td>
@@ -182,7 +147,13 @@ export function RolesPage() {
                   {r.isActive ? "비활성화" : "다시 사용"}
                 </button>
               </td>
-              <td aria-hidden="true">⠿</td>
+              <td
+                aria-hidden="true"
+                onMouseDown={handleDragHandleMouseDown(r.id)}
+                style={{ cursor: "grab", userSelect: "none" }}
+              >
+                ⠿
+              </td>
             </tr>
           ))}
         </tbody>

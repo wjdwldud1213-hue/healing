@@ -56,10 +56,9 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
   const [address, setAddress] = useState(employee?.address ?? "");
   const [baseSalary, setBaseSalary] = useState("");
   const [initialLeaveDays, setInitialLeaveDays] = useState("");
-  const [salaryUnlocked, setSalaryUnlocked] = useState(false);
-  const [salaryPin, setSalaryPin] = useState("");
-  const [salaryUnlockError, setSalaryUnlockError] = useState<string | null>(null);
-  const [salaryUnlockLoading, setSalaryUnlockLoading] = useState(false);
+  // 수정 모드에서 "현재값" 기준선 — 급여/연차일수 필드가 이 값과 달라진 경우에만 새 이력을 남긴다.
+  const [originalSalary, setOriginalSalary] = useState<number | null>(null);
+  const [originalLeaveDays, setOriginalLeaveDays] = useState(0);
   const [employmentStatus, setEmploymentStatus] = useState<Extract<EmploymentStatus, "ACTIVE" | "LEAVE">>(
     employee?.employmentStatus === "LEAVE" ? "LEAVE" : "ACTIVE",
   );
@@ -78,19 +77,23 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
     });
   }, []);
 
-  async function handleSalaryUnlock() {
-    if (!employee) return;
-    setSalaryUnlockError(null);
-    setSalaryUnlockLoading(true);
-    try {
-      await api.post(`/employees/${employee.employeeId}/unlock`, { pin: salaryPin });
-      setSalaryUnlocked(true);
-    } catch (err) {
-      setSalaryUnlockError((err as Error).message);
-    } finally {
-      setSalaryUnlockLoading(false);
-    }
-  }
+  // 수정 모드에서는 급여/연차일수를 관리자가 전부 볼 수 있어야 한다 — 입력창을 현재값으로
+  // 채워서 보여주고(연차는 자동발생 배치가 입사일 기준으로 계산해둔 값), 직접 입력하지 않는 한
+  // 그대로 저장돼도 새 이력이 남지 않는다.
+  useEffect(() => {
+    if (mode !== "edit" || !employee) return;
+    api
+      .get<{ currentSalary: number | null; currentYearGrantedDays: number }>(
+        `/employees/${employee.employeeId}/compensation-leave-summary`,
+      )
+      .then((summary) => {
+        setOriginalSalary(summary.currentSalary);
+        setBaseSalary(summary.currentSalary != null ? String(summary.currentSalary) : "");
+        setOriginalLeaveDays(summary.currentYearGrantedDays);
+        setInitialLeaveDays(String(summary.currentYearGrantedDays));
+      })
+      .catch(() => {});
+  }, [mode, employee]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -117,6 +120,10 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
         setTempPassword(created.tempPassword ?? null);
         setIssuedId(created.employeeId);
       } else if (employee) {
+        const newSalary = baseSalary ? Number(baseSalary) : null;
+        const salaryChanged = newSalary != null && newSalary !== originalSalary;
+        const leaveDelta = (initialLeaveDays ? Number(initialLeaveDays) : originalLeaveDays) - originalLeaveDays;
+
         const updated = await api.patch<Employee>(`/employees/${employee.employeeId}`, {
           departmentId,
           jobGradeId,
@@ -129,8 +136,8 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
           employmentType,
           isOwnerOperator: jobType === "DELIVERY" ? isOwnerOperator : null,
           ...(canEditStatus ? { employmentStatus } : {}),
-          ...(salaryUnlocked && baseSalary ? { baseSalary: Number(baseSalary) } : {}),
-          ...(salaryUnlocked && initialLeaveDays ? { additionalLeaveDays: Number(initialLeaveDays) } : {}),
+          ...(salaryChanged ? { baseSalary: newSalary } : {}),
+          ...(leaveDelta !== 0 ? { additionalLeaveDays: leaveDelta } : {}),
         });
         onDone(updated);
       }
@@ -268,52 +275,30 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
             />
           </label>
         )}
-        {mode === "edit" && !salaryUnlocked && (
-          <div className="stacked-form">
-            <p className="hint">
-              급여/연차일수 조정은 개인정보라 이 직원의 조회용 비밀번호(PIN)를 입력해야 볼 수
-              있습니다.
-            </p>
-            <label>
-              조회용 비밀번호(PIN)
-              <input
-                type="password"
-                inputMode="numeric"
-                value={salaryPin}
-                onChange={(e) => setSalaryPin(e.target.value)}
-              />
-            </label>
-            {salaryUnlockError && <p className="error">{salaryUnlockError}</p>}
-            <button type="button" onClick={handleSalaryUnlock} disabled={salaryUnlockLoading}>
-              {salaryUnlockLoading ? "확인 중..." : "잠금 해제"}
-            </button>
-          </div>
+        {mode === "edit" && (
+          <label>
+            급여 (원)
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={baseSalary}
+              onChange={(e) => setBaseSalary(e.target.value)}
+              placeholder="현재 급여 이력 없음"
+            />
+          </label>
         )}
-        {mode === "edit" && salaryUnlocked && (
-          <>
-            <label>
-              급여 조정 (원)
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={baseSalary}
-                onChange={(e) => setBaseSalary(e.target.value)}
-                placeholder="변경 시에만 입력 (새 급여 이력이 추가됩니다)"
-              />
-            </label>
-            <label>
-              추가 부여 연차일수
-              <input
-                type="number"
-                min="0"
-                step="0.5"
-                value={initialLeaveDays}
-                onChange={(e) => setInitialLeaveDays(e.target.value)}
-                placeholder="부여할 때만 입력 (기존 잔여일수에 더해집니다)"
-              />
-            </label>
-          </>
+        {mode === "edit" && (
+          <label>
+            연차일수 (올해 발생 기준)
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              value={initialLeaveDays}
+              onChange={(e) => setInitialLeaveDays(e.target.value)}
+            />
+          </label>
         )}
         {canEditStatus && (
           <label>

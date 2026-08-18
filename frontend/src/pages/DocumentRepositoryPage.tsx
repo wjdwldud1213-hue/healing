@@ -235,10 +235,10 @@ export function DocumentRepositoryPage() {
             <th>등록자</th>
             <th>분류</th>
             <th>파일명</th>
-            <th>공개범위</th>
             <th></th>
-            <th>업로드일</th>
             <th>유효기간</th>
+            <th>업로드일</th>
+            <th>공개범위</th>
             <th></th>
           </tr>
         </thead>
@@ -248,16 +248,16 @@ export function DocumentRepositoryPage() {
               <td>{doc.employee.name}</td>
               <td>{CATEGORY_LABEL[doc.category]}</td>
               <td>{doc.fileName}</td>
-              <td>{VISIBILITY_LABEL[doc.visibility]}</td>
               <td>
                 <a href={`${API_BASE}/documents/${doc.id}/download`} target="_blank" rel="noreferrer">
                   다운로드
                 </a>
               </td>
-              <td>{doc.createdAt.slice(0, 10)}</td>
               <td>
                 {doc.validFrom && doc.validUntil ? `${doc.validFrom} ~ ${doc.validUntil}` : "-"}
               </td>
+              <td>{doc.createdAt.slice(0, 10)}</td>
+              <td>{VISIBILITY_LABEL[doc.visibility]}</td>
               <td>
                 {(doc.employeeId === currentUser?.employeeId || canWrite) && (
                   <button type="button" onClick={() => handleDelete(doc)}>

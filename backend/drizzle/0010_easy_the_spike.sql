@@ -1,0 +1,1 @@
+ALTER TABLE `departments` ADD `manager_id` text REFERENCES employees(employee_id);

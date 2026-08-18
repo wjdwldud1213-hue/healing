@@ -1610,3 +1610,111 @@ button.login-btn:disabled {
   font-size: 0.9rem;
 }
 
+/* ── 조직도 ──────────────────────────────────────────── */
+.orgchart {
+  position: relative;
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.orgchart-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.orgchart-connector-path {
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 2;
+}
+
+.orgchart-root-row {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.orgchart-connector {
+  width: 2px;
+  height: 32px;
+  background: var(--text-muted);
+}
+
+.orgchart-dept-row {
+  width: 100%;
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.orgchart-dept-row--spaced {
+  margin-top: 56px;
+}
+
+.orgchart-dept-group {
+  position: relative;
+  background: var(--card-white);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 20px;
+  min-width: 250px;
+  max-width: 100%;
+}
+
+.orgchart-dept-name {
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--text-main);
+  margin-bottom: 14px;
+}
+
+.orgchart-dept-members {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.orgchart-card {
+  flex-shrink: 0;
+  width: 210px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 14px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.orgchart-card:hover {
+  border-color: var(--accent-rust);
+  box-shadow: 0 4px 14px -6px rgba(15, 32, 25, 0.25);
+}
+
+.orgchart-card--root {
+  background: var(--brand-dark);
+  border-color: var(--brand-dark);
+}
+.orgchart-card--root .orgchart-card-name,
+.orgchart-card--root .orgchart-card-meta {
+  color: #fff;
+}
+
+.orgchart-card-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.orgchart-card-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}

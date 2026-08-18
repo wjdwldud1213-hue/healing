@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { getDb } from "../lib/db";
-import { departments, departmentCodeSequences } from "../db/schema";
+import { departments, departmentCodeSequences, employees } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 import { requirePermission } from "../middleware/permission";
 import type { AppEnv } from "../types";
@@ -53,16 +53,35 @@ departmentsRoute.patch("/:id", requirePermission("DEPARTMENT_MANAGE"), async (c)
   if (!Number.isInteger(id)) return c.json({ error: "잘못된 부서 ID입니다." }, 400);
 
   const body = await c.req
-    .json<{ name?: string; isActive?: boolean; sortOrder?: number }>()
-    .catch(() => ({}) as { name?: string; isActive?: boolean; sortOrder?: number });
+    .json<{ name?: string; isActive?: boolean; sortOrder?: number; managerId?: string | null }>()
+    .catch(
+      () => ({}) as { name?: string; isActive?: boolean; sortOrder?: number; managerId?: string | null },
+    );
 
   const db = getDb(c.env.DB);
-  const updates: { name?: string; isActive?: boolean; sortOrder?: number; updatedAt: string } = {
+
+  if ("managerId" in body && body.managerId != null) {
+    const manager = await db.query.employees.findFirst({
+      where: eq(employees.employeeId, body.managerId),
+    });
+    if (!manager || manager.employmentStatus === "RESIGNED") {
+      return c.json({ error: "유효하지 않은 담당 임원입니다." }, 400);
+    }
+  }
+
+  const updates: {
+    name?: string;
+    isActive?: boolean;
+    sortOrder?: number;
+    managerId?: string | null;
+    updatedAt: string;
+  } = {
     updatedAt: new Date().toISOString(),
   };
   if (body.name !== undefined) updates.name = body.name.trim();
   if (body.isActive !== undefined) updates.isActive = body.isActive;
   if (body.sortOrder !== undefined) updates.sortOrder = body.sortOrder;
+  if ("managerId" in body) updates.managerId = body.managerId ?? null;
 
   await db.update(departments).set(updates).where(eq(departments.id, id));
   const updated = await db.query.departments.findFirst({ where: eq(departments.id, id) });

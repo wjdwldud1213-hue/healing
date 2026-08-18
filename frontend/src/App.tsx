@@ -13,6 +13,7 @@ import { HomePage } from "./pages/HomePage";
 import { ComingSoonPage } from "./pages/ComingSoonPage";
 import { DepartmentsPage } from "./pages/DepartmentsPage";
 import { EmployeesPage } from "./pages/EmployeesPage";
+import { OrgChartPage } from "./pages/OrgChartPage";
 import { ReferenceDataPage } from "./pages/ReferenceDataPage";
 import { RolesPage } from "./pages/RolesPage";
 import { MyProfilePage } from "./pages/MyProfilePage";
@@ -49,6 +50,7 @@ export default function App() {
               <Route path="/link-kakao" element={<KakaoLinkPage />} />
               <Route path="/kakao/link-callback" element={<KakaoLinkCallbackPage />} />
               <Route path="/coming-soon/:feature" element={<ComingSoonPage />} />
+              <Route path="/org-chart" element={<OrgChartPage />} />
 
               <Route element={<RequirePermission anyOf={CAN_VIEW_EMPLOYEE_LIST} />}>
                 <Route path="/employees" element={<EmployeesPage />} />

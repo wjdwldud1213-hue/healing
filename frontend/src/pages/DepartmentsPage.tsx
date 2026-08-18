@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { Department } from "../types";
+import type { Department, Employee } from "../types";
 
 export function DepartmentsPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -15,6 +16,12 @@ export function DepartmentsPage() {
   }
 
   useEffect(load, []);
+  useEffect(() => {
+    api
+      .get<Employee[]>("/employees")
+      .then((rows) => setEmployees(rows.filter((e) => e.employmentStatus !== "RESIGNED")))
+      .catch(() => {});
+  }, []);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -34,6 +41,11 @@ export function DepartmentsPage() {
 
   async function toggleActive(dept: Department) {
     await api.patch(`/departments/${dept.id}`, { isActive: !dept.isActive });
+    load();
+  }
+
+  async function handleManagerChange(dept: Department, managerId: string) {
+    await api.patch(`/departments/${dept.id}`, { managerId: managerId || null });
     load();
   }
 
@@ -93,6 +105,7 @@ export function DepartmentsPage() {
           <tr>
             <th>코드</th>
             <th>부서명</th>
+            <th>담당 임원</th>
             <th>상태</th>
             <th></th>
             <th></th>
@@ -111,6 +124,19 @@ export function DepartmentsPage() {
             >
               <td>{d.code}</td>
               <td>{d.name}</td>
+              <td>
+                <select
+                  value={d.managerId ?? ""}
+                  onChange={(e) => handleManagerChange(d, e.target.value)}
+                >
+                  <option value="">미지정</option>
+                  {employees.map((emp) => (
+                    <option key={emp.employeeId} value={emp.employeeId}>
+                      {emp.name} ({emp.employeeId})
+                    </option>
+                  ))}
+                </select>
+              </td>
               <td>{d.isActive ? "사용중" : "비활성"}</td>
               <td>
                 <button type="button" onClick={() => toggleActive(d)}>

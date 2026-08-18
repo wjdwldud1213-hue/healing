@@ -35,6 +35,11 @@ export const menuData: MenuGroup[] = [
     icon: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><line x1="3" y1="12" x2="21" y2="12"/>',
     children: [
       {
+        id: "orgChart",
+        label: "조직도",
+        path: "/org-chart",
+      },
+      {
         id: "empManage",
         label: "직원 관리",
         path: "/employees",

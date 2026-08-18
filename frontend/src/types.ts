@@ -4,6 +4,7 @@ export type Department = {
   name: string;
   sortOrder: number;
   isActive: boolean;
+  managerId: string | null;
   createdAt: string;
   updatedAt: string;
 };

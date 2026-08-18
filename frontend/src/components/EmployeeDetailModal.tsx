@@ -20,10 +20,11 @@ const EMPLOYMENT_TYPE_LABEL: Record<EmploymentType, string> = {
   CONTRACT: "계약직",
 };
 
-function Field({ label, value }: { label: string; value: string | null }) {
+function Field({ label, value, locked }: { label: string; value: string | null; locked?: boolean }) {
   return (
     <p>
-      <b>{label}</b> {value ?? <span className="hint">🔒 잠김</span>}
+      <b>{label}</b>{" "}
+      {value ?? <span className="hint">{locked ? "🔒 잠김" : "미입력"}</span>}
     </p>
   );
 }
@@ -68,15 +69,27 @@ export function EmployeeDetailModal({
       <Field label="직급" value={employee.jobGrade.name} />
       <Field label="직군" value={JOB_TYPE_LABEL[employee.jobType]} />
       {employee.jobType === "DELIVERY" && (
-        <Field label="지입 여부" value={shown.isOwnerOperator == null ? null : shown.isOwnerOperator ? "Y" : "N"} />
+        <Field
+          label="지입 여부"
+          value={shown.isOwnerOperator == null ? null : shown.isOwnerOperator ? "Y" : "N"}
+          locked={isLocked}
+        />
       )}
       <Field label="내선번호" value={employee.extensionNumber ?? "-"} />
-      <Field label="입사일" value={shown.hireDate} />
-      <Field label="재직상태" value={shown.employmentStatus ? STATUS_LABEL[shown.employmentStatus] : null} />
-      <Field label="고용형태" value={shown.employmentType ? EMPLOYMENT_TYPE_LABEL[shown.employmentType] : null} />
-      <Field label="휴대폰번호" value={shown.mobilePhone} />
-      <Field label="주소" value={shown.address} />
-      <Field label="권한" value={shown.role?.name ?? null} />
+      <Field label="입사일" value={shown.hireDate} locked={isLocked} />
+      <Field
+        label="재직상태"
+        value={shown.employmentStatus ? STATUS_LABEL[shown.employmentStatus] : null}
+        locked={isLocked}
+      />
+      <Field
+        label="고용형태"
+        value={shown.employmentType ? EMPLOYMENT_TYPE_LABEL[shown.employmentType] : null}
+        locked={isLocked}
+      />
+      <Field label="휴대폰번호" value={shown.mobilePhone} locked={isLocked} />
+      <Field label="주소" value={shown.address} locked={isLocked} />
+      <Field label="권한" value={shown.role?.name ?? null} locked={isLocked} />
 
       {isLocked && (
         <form onSubmit={handleUnlock} className="stacked-form">

@@ -149,6 +149,11 @@ export function DocumentRepositoryPage() {
   const [departmentFilter, setDepartmentFilter] = useState<number | "">("");
   const [uploaderFilter, setUploaderFilter] = useState<string | "">("");
   const [categoryFilter, setCategoryFilter] = useState<DocumentCategory | "">("");
+  const [validUntilSort, setValidUntilSort] = useState<"asc" | "desc" | null>(null);
+
+  function toggleValidUntilSort() {
+    setValidUntilSort((prev) => (prev === null ? "asc" : prev === "asc" ? "desc" : null));
+  }
 
   function load() {
     api
@@ -177,6 +182,18 @@ export function DocumentRepositoryPage() {
     if (categoryFilter && doc.category !== categoryFilter) return false;
     return true;
   });
+
+  // 유효기간이 없는 분류(주민등록등본/기타)는 정렬 방향과 무관하게 항상 뒤로 보낸다.
+  const sortedDocuments = validUntilSort
+    ? [...filteredDocuments].sort((a, b) => {
+        if (!a.validUntil && !b.validUntil) return 0;
+        if (!a.validUntil) return 1;
+        if (!b.validUntil) return -1;
+        return validUntilSort === "asc"
+          ? a.validUntil.localeCompare(b.validUntil)
+          : b.validUntil.localeCompare(a.validUntil);
+      })
+    : filteredDocuments;
 
   async function handleDelete(doc: StoredDocument) {
     if (!confirm(`${doc.fileName} 파일을 삭제할까요?`)) return;
@@ -236,14 +253,16 @@ export function DocumentRepositoryPage() {
             <th>분류</th>
             <th>파일명</th>
             <th></th>
-            <th>유효기간</th>
+            <th onClick={toggleValidUntilSort} style={{ cursor: "pointer", userSelect: "none" }}>
+              유효기간{validUntilSort === "asc" ? " ▲" : validUntilSort === "desc" ? " ▼" : ""}
+            </th>
             <th>업로드일</th>
             <th>공개범위</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {filteredDocuments.map((doc) => (
+          {sortedDocuments.map((doc) => (
             <tr key={doc.id}>
               <td>{doc.employee.name}</td>
               <td>{CATEGORY_LABEL[doc.category]}</td>

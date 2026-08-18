@@ -1,6 +1,15 @@
 import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
-import { sqliteTable, text, integer, real, primaryKey, uniqueIndex, check } from "drizzle-orm/sqlite-core";
+import {
+  sqliteTable,
+  text,
+  integer,
+  real,
+  primaryKey,
+  uniqueIndex,
+  check,
+  type AnySQLiteColumn,
+} from "drizzle-orm/sqlite-core";
 
 // ── 부서 ─────────────────────────────────────────────
 // 부서코드(A~Z)는 한 번 배정되면 다른 부서에 재배정하지 않는다.
@@ -13,6 +22,10 @@ export const departments = sqliteTable(
     name: text("name").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
     isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    // 이 부서를 담당하는 임원. 직원 등록 시 부서가 필수라 임원도 어쩔 수 없이 임의 부서(예: 관리부)에
+    // 소속되지만, 실제 조직 구조상 의미 있는 건 "이 부서를 누가 담당하는가"이므로 별도로 저장한다.
+    // 조직도는 employees.departmentId가 아니라 이 값을 기준으로 부서를 담당 임원 아래에 묶어서 그린다.
+    managerId: text("manager_id").references((): AnySQLiteColumn => employees.employeeId),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
@@ -101,12 +114,22 @@ export const employees = sqliteTable(
     jobType: text("job_type", { enum: ["OFFICE", "DELIVERY", "SALES"] })
       .notNull()
       .default("OFFICE"),
+    // 정규직/계약직 구분 — 근태·반경 검증 로직과는 무관한 순수 인사 정보 필드.
+    employmentType: text("employment_type", { enum: ["REGULAR", "CONTRACT"] })
+      .notNull()
+      .default("REGULAR"),
+    // 배송직(jobType=DELIVERY)일 때만 의미있는 값 — 지입(본인 소유/리스 차량으로 운행) 여부.
+    // 사무직/영업직은 항상 null.
+    isOwnerOperator: integer("is_owner_operator", { mode: "boolean" }),
     mobilePhone: text("mobile_phone").notNull(),
     extensionNumber: text("extension_number"),
     address: text("address"),
     // 셀프 비밀번호 재설정용 카카오 계정 연동. 한 카카오 계정은 한 직원에만 연동되며(unique),
     // 이 값이 없으면 RequireAuth가 /link-kakao로 강제 이동시킨다.
     kakaoUserId: text("kakao_user_id").unique(),
+    // 조회 전용 잠금 해제용 PIN(4자리 이상) 해시. 본인이 마이페이지에서 직접 설정하며,
+    // EMPLOYEE_WRITE 권한이 없는 조회자가 상세보기에서 마스킹된 필드를 풀 때 사용한다.
+    viewPinHash: text("view_pin_hash"),
     passwordHash: text("password_hash").notNull(),
     mustChangePassword: integer("must_change_password", { mode: "boolean" })
       .notNull()
@@ -417,8 +440,9 @@ export const passwordResetTokens = sqliteTable("password_reset_tokens", {
 });
 
 // ── 관계 (조회 편의용) ────────────────────────────────
-export const departmentsRelations = relations(departments, ({ many }) => ({
+export const departmentsRelations = relations(departments, ({ one, many }) => ({
   employees: many(employees),
+  manager: one(employees, { fields: [departments.managerId], references: [employees.employeeId] }),
 }));
 
 export const rolesRelations = relations(roles, ({ many }) => ({

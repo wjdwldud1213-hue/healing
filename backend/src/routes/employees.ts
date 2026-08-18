@@ -32,6 +32,36 @@ const employeeDetail = {
   },
 } as const;
 
+// 이름/부서/직급/직군/내선번호를 제외한 나머지는 개인정보로 보고 기본적으로 가린다.
+// EMPLOYEE_WRITE 권한이 없는 조회자에게는 목록/상세 응답에서 이 필드들을 null로 비운 뒤,
+// 해당 직원의 조회용 비밀번호(PIN)를 맞혀야만(POST /:id/unlock) 실제 값을 내려준다.
+const SENSITIVE_FIELDS = [
+  "hireDate",
+  "employmentStatus",
+  "statusChangedAt",
+  "jobTitleId",
+  "jobTitle",
+  "mobilePhone",
+  "address",
+  "employmentType",
+  "isOwnerOperator",
+  "roleId",
+  "role",
+] as const;
+
+function maskSensitiveFields<T extends Record<string, unknown>>(emp: T): T {
+  const masked = { ...emp };
+  for (const key of SENSITIVE_FIELDS) {
+    if (key in masked) (masked as Record<string, unknown>)[key] = null;
+  }
+  return masked;
+}
+
+function stripPrivateFields<T extends { passwordHash?: unknown; viewPinHash?: unknown }>(emp: T) {
+  const { passwordHash: _passwordHash, viewPinHash: _viewPinHash, ...rest } = emp;
+  return rest;
+}
+
 // 화면 단위뿐 아니라 여기(API)에서도 매번 확인한다 — 프론트가 메뉴만 숨기는 방식은 쓰지 않는다.
 // 일반직원은 본인 것만, 부서관리자는 소속 부서만, 시스템관리자는 전체를 볼 수 있다.
 employeesRoute.get("/", async (c) => {
@@ -61,10 +91,43 @@ employeesRoute.get("/", async (c) => {
     orderBy: (e, { asc }) => [asc(e.employeeId)],
   });
 
-  return c.json(rows.map(({ passwordHash: _passwordHash, ...rest }) => rest));
+  const canSeeAll = codes.has("EMPLOYEE_WRITE");
+  return c.json(
+    rows.map((row) => {
+      const stripped = stripPrivateFields(row);
+      return canSeeAll ? stripped : maskSensitiveFields(stripped);
+    }),
+  );
 });
 
 employeesRoute.get("/:id", async (c) => {
+  const targetId = c.req.param("id");
+  const actorId = c.get("currentUserId")!;
+  const db = getDb(c.env.DB);
+
+  const target = await db.query.employees.findFirst({
+    ...employeeDetail,
+    where: eq(employees.employeeId, targetId),
+  });
+  if (!target) return c.json({ error: "직원을 찾을 수 없습니다." }, 404);
+
+  const actor = await db.query.employees.findFirst({ where: eq(employees.employeeId, actorId) });
+  const codes = await getPermissionCodes(db, actor!.roleId);
+
+  if (targetId !== actorId) {
+    const allowed =
+      codes.has("EMPLOYEE_READ_ALL") ||
+      (codes.has("EMPLOYEE_READ_DEPARTMENT") && target.departmentId === actor!.departmentId);
+    if (!allowed) return c.json({ error: "조회 권한이 없습니다." }, 403);
+  }
+
+  const stripped = stripPrivateFields(target);
+  return c.json(codes.has("EMPLOYEE_WRITE") ? stripped : maskSensitiveFields(stripped));
+});
+
+// 해당 직원의 조회용 비밀번호(PIN)를 맞히면, 마스킹 없는 전체 정보를 그 자리에서 돌려준다.
+// EMPLOYEE_WRITE 권한자는 애초에 마스킹이 안 되므로 이 엔드포인트를 쓸 필요가 없다.
+employeesRoute.post("/:id/unlock", async (c) => {
   const targetId = c.req.param("id");
   const actorId = c.get("currentUserId")!;
   const db = getDb(c.env.DB);
@@ -84,8 +147,42 @@ employeesRoute.get("/:id", async (c) => {
     if (!allowed) return c.json({ error: "조회 권한이 없습니다." }, 403);
   }
 
-  const { passwordHash: _passwordHash, ...rest } = target;
-  return c.json(rest);
+  if (!target.viewPinHash) {
+    return c.json({ error: "이 직원은 아직 조회용 비밀번호를 설정하지 않았습니다." }, 400);
+  }
+
+  const body = await c.req.json<{ pin?: string }>().catch(() => ({}) as { pin?: string });
+  const pin = (body.pin ?? "").trim();
+  if (!pin) return c.json({ error: "조회용 비밀번호를 입력하세요." }, 400);
+
+  const ok = await bcrypt.compare(pin, target.viewPinHash);
+  if (!ok) return c.json({ error: "조회용 비밀번호가 올바르지 않습니다." }, 400);
+
+  return c.json(stripPrivateFields(target));
+});
+
+// 본인만 자신의 조회용 비밀번호(PIN)를 설정/변경할 수 있다.
+employeesRoute.post("/:id/set-view-pin", async (c) => {
+  const targetId = c.req.param("id");
+  const actorId = c.get("currentUserId")!;
+  if (targetId !== actorId) {
+    return c.json({ error: "본인만 조회용 비밀번호를 설정할 수 있습니다." }, 403);
+  }
+
+  const body = await c.req.json<{ pin?: string }>().catch(() => ({}) as { pin?: string });
+  const pin = (body.pin ?? "").trim();
+  if (!/^\d{4,}$/.test(pin)) {
+    return c.json({ error: "조회용 비밀번호는 숫자 4자리 이상이어야 합니다." }, 400);
+  }
+
+  const db = getDb(c.env.DB);
+  const viewPinHash = await bcrypt.hash(pin, 10);
+  await db
+    .update(employees)
+    .set({ viewPinHash, updatedAt: new Date().toISOString() })
+    .where(eq(employees.employeeId, targetId));
+
+  return c.json({ ok: true });
 });
 
 employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
@@ -104,6 +201,8 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
       initialLeaveDays?: number;
       employmentStatus?: string;
       jobType?: string;
+      employmentType?: string;
+      isOwnerOperator?: boolean | null;
     }>()
     .catch(() => ({}) as Record<string, never>);
 
@@ -137,6 +236,11 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
   if (body.jobType != null && !["OFFICE", "DELIVERY", "SALES"].includes(body.jobType)) {
     return c.json({ error: "직군은 사무직/배송직/영업직 중 하나여야 합니다." }, 400);
   }
+  if (body.employmentType != null && !["REGULAR", "CONTRACT"].includes(body.employmentType)) {
+    return c.json({ error: "고용형태는 정규직 또는 계약직이어야 합니다." }, 400);
+  }
+  // 지입 여부는 배송직에서만 의미가 있다 — 그 외 직군이면 값을 받아도 저장하지 않는다.
+  const isOwnerOperator = body.jobType === "DELIVERY" ? (body.isOwnerOperator ?? null) : null;
 
   const db = getDb(c.env.DB);
 
@@ -179,6 +283,8 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
       address: address ?? null,
       employmentStatus: employmentStatus === "LEAVE" ? "LEAVE" : "ACTIVE",
       jobType: (body.jobType as "OFFICE" | "DELIVERY" | "SALES" | undefined) ?? "OFFICE",
+      employmentType: (body.employmentType as "REGULAR" | "CONTRACT" | undefined) ?? "REGULAR",
+      isOwnerOperator,
       passwordHash,
       mustChangePassword: true,
       roleId,
@@ -281,15 +387,23 @@ employeesRoute.patch("/:id", async (c) => {
   if (body.jobType != null && !["OFFICE", "DELIVERY", "SALES"].includes(body.jobType as string)) {
     return c.json({ error: "직군은 사무직/배송직/영업직 중 하나여야 합니다." }, 400);
   }
+  if (body.employmentType != null && !["REGULAR", "CONTRACT"].includes(body.employmentType as string)) {
+    return c.json({ error: "고용형태는 정규직 또는 계약직이어야 합니다." }, 400);
+  }
 
+  // 이름/입사일은 발급 후 수정 불가 — PATCH 바디에 실려와도 절대 반영하지 않는다(관리자가 직접
+  // API를 호출해도 우회 불가하도록 UI가 아니라 여기서 막는다).
   const updates: Record<string, unknown> = { updatedAt: new Date().toISOString(), updatedBy: actorId };
-  if (typeof body.name === "string") updates.name = body.name.trim();
-  if (typeof body.hireDate === "string") updates.hireDate = body.hireDate.trim();
   if ("address" in body) updates.address = body.address ?? null;
   if (typeof body.mobilePhone === "string") updates.mobilePhone = body.mobilePhone.trim();
   if ("extensionNumber" in body) updates.extensionNumber = body.extensionNumber ?? null;
   if (typeof body.roleId === "number") updates.roleId = body.roleId;
   if (typeof body.jobType === "string") updates.jobType = body.jobType;
+  if (typeof body.employmentType === "string") updates.employmentType = body.employmentType;
+  if ("isOwnerOperator" in body) {
+    const effectiveJobType = typeof body.jobType === "string" ? body.jobType : current.jobType;
+    updates.isOwnerOperator = effectiveJobType === "DELIVERY" ? (body.isOwnerOperator as boolean | null) : null;
+  }
   if (body.employmentStatus === "ACTIVE" || body.employmentStatus === "LEAVE") {
     updates.employmentStatus = body.employmentStatus;
     updates.statusChangedAt = new Date().toISOString();
@@ -330,8 +444,7 @@ employeesRoute.patch("/:id", async (c) => {
     ...employeeDetail,
     where: eq(employees.employeeId, employeeId),
   });
-  const { passwordHash: _passwordHash, ...rest } = updated!;
-  return c.json(rest);
+  return c.json(stripPrivateFields(updated!));
 });
 
 employeesRoute.post("/:id/resign", requirePermission("EMPLOYEE_WRITE"), async (c) => {
@@ -355,6 +468,5 @@ employeesRoute.post("/:id/resign", requirePermission("EMPLOYEE_WRITE"), async (c
     ...employeeDetail,
     where: eq(employees.employeeId, employeeId),
   });
-  const { passwordHash: _passwordHash, ...rest } = updated!;
-  return c.json(rest);
+  return c.json(stripPrivateFields(updated!));
 });

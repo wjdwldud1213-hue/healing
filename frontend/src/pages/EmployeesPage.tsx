@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { Department, Employee, EmploymentStatus } from "../types";
+import type { Department, EmploymentStatus, MaskableEmployee } from "../types";
 import { EmployeeForm } from "../components/EmployeeForm";
+import { EmployeeDetailModal } from "../components/EmployeeDetailModal";
 import { Modal } from "../components/Modal";
 import { useAuth } from "../auth/AuthContext";
 
@@ -14,20 +15,21 @@ const STATUS_LABEL: Record<EmploymentStatus, string> = {
 export function EmployeesPage() {
   const { currentUser } = useAuth();
   const canWrite = currentUser?.permissions?.includes("EMPLOYEE_WRITE") ?? false;
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employees, setEmployees] = useState<MaskableEmployee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [departmentFilter, setDepartmentFilter] = useState<number | "">("");
   const [statusFilter, setStatusFilter] = useState<EmploymentStatus | "">("");
   const [error, setError] = useState<string | null>(null);
   const [formMode, setFormMode] = useState<"none" | "create" | "edit">("none");
-  const [editing, setEditing] = useState<Employee | null>(null);
+  const [editing, setEditing] = useState<MaskableEmployee | null>(null);
+  const [viewing, setViewing] = useState<MaskableEmployee | null>(null);
 
   function load() {
     const params = new URLSearchParams();
     if (departmentFilter) params.set("departmentId", String(departmentFilter));
     if (statusFilter) params.set("status", statusFilter);
     api
-      .get<Employee[]>(`/employees?${params.toString()}`)
+      .get<MaskableEmployee[]>(`/employees?${params.toString()}`)
       .then(setEmployees)
       .catch((e) => setError((e as Error).message));
   }
@@ -37,7 +39,7 @@ export function EmployeesPage() {
     api.get<Department[]>("/departments").then(setDepartments);
   }, []);
 
-  async function handleResign(employee: Employee) {
+  async function handleResign(employee: MaskableEmployee) {
     if (!confirm(`${employee.name}(${employee.employeeId}) 님을 퇴사 처리할까요?`)) return;
     await api.post(`/employees/${employee.employeeId}/resign`);
     load();
@@ -103,7 +105,7 @@ export function EmployeesPage() {
               <td>{emp.name}</td>
               <td>{emp.department.name}</td>
               <td>{emp.jobGrade.name}</td>
-              <td>{STATUS_LABEL[emp.employmentStatus]}</td>
+              <td>{emp.employmentStatus ? STATUS_LABEL[emp.employmentStatus] : "🔒"}</td>
               <td>{emp.extensionNumber ?? "-"}</td>
               <td className="row-actions">
                 {canWrite && (
@@ -115,6 +117,11 @@ export function EmployeesPage() {
                     }}
                   >
                     수정
+                  </button>
+                )}
+                {!canWrite && (
+                  <button type="button" onClick={() => setViewing(emp)}>
+                    상세보기
                   </button>
                 )}
                 {canWrite && emp.employmentStatus !== "RESIGNED" && (
@@ -138,6 +145,12 @@ export function EmployeesPage() {
               load();
             }}
           />
+        </Modal>
+      )}
+
+      {viewing && (
+        <Modal onClose={() => setViewing(null)}>
+          <EmployeeDetailModal employee={viewing} onClose={() => setViewing(null)} />
         </Modal>
       )}
     </section>

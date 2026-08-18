@@ -2,7 +2,16 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api/client";
 import { formatPhoneNumber } from "../lib/phone";
-import type { Department, Employee, EmploymentStatus, JobGrade, JobType, Role } from "../types";
+import type {
+  Department,
+  Employee,
+  EmploymentStatus,
+  EmploymentType,
+  JobGrade,
+  JobType,
+  MaskableEmployee,
+  Role,
+} from "../types";
 
 const JOB_TYPE_LABEL: Record<JobType, string> = {
   OFFICE: "사무직",
@@ -10,9 +19,14 @@ const JOB_TYPE_LABEL: Record<JobType, string> = {
   SALES: "영업직",
 };
 
+const EMPLOYMENT_TYPE_LABEL: Record<EmploymentType, string> = {
+  REGULAR: "정규직",
+  CONTRACT: "계약직",
+};
+
 type Props = {
   mode: "create" | "edit";
-  employee?: Employee;
+  employee?: MaskableEmployee;
   onDone: (result?: Employee) => void;
 };
 
@@ -21,6 +35,7 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
   const [jobGrades, setJobGrades] = useState<JobGrade[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [issuedId, setIssuedId] = useState<string | null>(null);
 
@@ -34,6 +49,10 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
   );
   const [roleId, setRoleId] = useState(employee?.roleId ?? 0);
   const [jobType, setJobType] = useState<JobType>(employee?.jobType ?? "OFFICE");
+  const [employmentType, setEmploymentType] = useState<EmploymentType>(
+    employee?.employmentType ?? "REGULAR",
+  );
+  const [isOwnerOperator, setIsOwnerOperator] = useState(employee?.isOwnerOperator ?? false);
   const [address, setAddress] = useState(employee?.address ?? "");
   const [baseSalary, setBaseSalary] = useState("");
   const [initialLeaveDays, setInitialLeaveDays] = useState("");
@@ -58,6 +77,7 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setSubmitting(true);
     try {
       if (mode === "create") {
         const created = await api.post<Employee>("/employees", {
@@ -69,6 +89,8 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
           extensionNumber: extensionNumber || null,
           roleId,
           jobType,
+          employmentType,
+          isOwnerOperator: jobType === "DELIVERY" ? isOwnerOperator : null,
           address: address || null,
           baseSalary: baseSalary ? Number(baseSalary) : undefined,
           initialLeaveDays: initialLeaveDays ? Number(initialLeaveDays) : undefined,
@@ -78,21 +100,23 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
         setIssuedId(created.employeeId);
       } else if (employee) {
         const updated = await api.patch<Employee>(`/employees/${employee.employeeId}`, {
-          name,
           departmentId,
           jobGradeId,
-          hireDate,
           address: address || null,
           mobilePhone,
           extensionNumber: extensionNumber || null,
           roleId,
           jobType,
+          employmentType,
+          isOwnerOperator: jobType === "DELIVERY" ? isOwnerOperator : null,
           ...(canEditStatus ? { employmentStatus } : {}),
         });
         onDone(updated);
       }
     } catch (submitError) {
       setError((submitError as Error).message);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -120,8 +144,14 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
       <form onSubmit={handleSubmit} className="stacked-form">
         <label>
           이름
-          <input value={name} onChange={(e) => setName(e.target.value)} required />
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            disabled={mode === "edit"}
+            required
+          />
         </label>
+        {mode === "edit" && <p className="hint">이름은 등록 후에는 변경할 수 없습니다.</p>}
         <label>
           부서
           <select
@@ -166,15 +196,29 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
             ))}
           </select>
         </label>
+        {jobType === "DELIVERY" && (
+          <label>
+            지입 여부
+            <select
+              value={isOwnerOperator ? "Y" : "N"}
+              onChange={(e) => setIsOwnerOperator(e.target.value === "Y")}
+            >
+              <option value="N">N</option>
+              <option value="Y">Y</option>
+            </select>
+          </label>
+        )}
         <label>
           입사일
           <input
             type="date"
             value={hireDate}
             onChange={(e) => setHireDate(e.target.value)}
+            disabled={mode === "edit"}
             required
           />
         </label>
+        {mode === "edit" && <p className="hint">입사일은 등록 후에는 변경할 수 없습니다.</p>}
         <label>
           주소
           <input value={address} onChange={(e) => setAddress(e.target.value)} />
@@ -218,6 +262,19 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
           </label>
         )}
         <label>
+          고용형태
+          <select
+            value={employmentType}
+            onChange={(e) => setEmploymentType(e.target.value as EmploymentType)}
+          >
+            {(Object.keys(EMPLOYMENT_TYPE_LABEL) as EmploymentType[]).map((et) => (
+              <option key={et} value={et}>
+                {EMPLOYMENT_TYPE_LABEL[et]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
           휴대폰번호
           <input
             value={mobilePhone}
@@ -235,7 +292,7 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
         </label>
         <label>
           권한
-          <select value={roleId} onChange={(e) => setRoleId(Number(e.target.value))} required>
+          <select value={roleId ?? 0} onChange={(e) => setRoleId(Number(e.target.value))} required>
             <option value={0} disabled>
               선택
             </option>
@@ -248,8 +305,10 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
         </label>
         {error && <p className="error">{error}</p>}
         <div className="form-actions">
-          <button type="submit">{mode === "create" ? "등록" : "저장"}</button>
-          <button type="button" onClick={() => onDone()}>
+          <button type="submit" disabled={submitting}>
+            {submitting ? (mode === "create" ? "등록 중..." : "저장 중...") : mode === "create" ? "등록" : "저장"}
+          </button>
+          <button type="button" onClick={() => onDone()} disabled={submitting}>
             취소
           </button>
         </div>

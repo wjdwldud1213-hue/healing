@@ -71,6 +71,20 @@
       "when": 1786794826285,
       "tag": "0009_glorious_juggernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1786803318970,
+      "tag": "0010_easy_the_spike",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1787014721219,
+      "tag": "0011_red_blue_blade",
+      "breakpoints": true
     }
   ]
 }

@@ -16,6 +16,12 @@ export function MyProfilePage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [pin, setPin] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
+  const [pinMessage, setPinMessage] = useState<string | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [pinSubmitting, setPinSubmitting] = useState(false);
+
   if (!currentUser) return null;
 
   async function handleSubmit(e: FormEvent) {
@@ -32,6 +38,27 @@ export function MyProfilePage() {
       setMessage("저장되었습니다.");
     } catch (err) {
       setError((err as Error).message);
+    }
+  }
+
+  async function handleSetPin(e: FormEvent) {
+    e.preventDefault();
+    setPinError(null);
+    setPinMessage(null);
+    if (pin !== pinConfirm) {
+      setPinError("조회용 비밀번호가 서로 일치하지 않습니다.");
+      return;
+    }
+    setPinSubmitting(true);
+    try {
+      await api.post(`/employees/${currentUser!.employeeId}/set-view-pin`, { pin });
+      setPin("");
+      setPinConfirm("");
+      setPinMessage("조회용 비밀번호가 설정되었습니다.");
+    } catch (err) {
+      setPinError((err as Error).message);
+    } finally {
+      setPinSubmitting(false);
     }
   }
 
@@ -92,6 +119,41 @@ export function MyProfilePage() {
           비밀번호를 잊었을 때 관리자 승인 없이 본인이 직접 재설정하는 데 사용됩니다.
         </p>
         <p>{currentUser.kakaoUserId ? "연동됨" : "연동 안 됨"}</p>
+      </div>
+      <div className="card">
+        <h3>조회용 비밀번호(PIN)</h3>
+        <p className="hint">
+          이름/부서/직급/직군/내선번호를 제외한 내 개인정보는 다른 조회자에게 기본적으로
+          가려집니다. 여기서 설정한 비밀번호를 입력해야만 그 조회자가 확인할 수 있습니다.
+        </p>
+        <form onSubmit={handleSetPin} className="stacked-form">
+          <label>
+            새 조회용 비밀번호 (숫자 4자리 이상)
+            <input
+              type="password"
+              inputMode="numeric"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              minLength={4}
+              required
+            />
+          </label>
+          <label>
+            새 조회용 비밀번호 확인
+            <input
+              type="password"
+              inputMode="numeric"
+              value={pinConfirm}
+              onChange={(e) => setPinConfirm(e.target.value)}
+              required
+            />
+          </label>
+          {pinMessage && <p className="notice">{pinMessage}</p>}
+          {pinError && <p className="error">{pinError}</p>}
+          <button type="submit" disabled={pinSubmitting}>
+            {pinSubmitting ? "설정 중..." : "설정"}
+          </button>
+        </form>
       </div>
     </section>
   );

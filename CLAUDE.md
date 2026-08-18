@@ -25,7 +25,8 @@
 - **스테이징(테스트)**: 완전히 분리된 백엔드 Worker `healingfood-api-test`(`backend/wrangler.toml`의 `[env.test]`, D1 `groupware-db-test`)와 프론트엔드 Pages/Workers 프로젝트 `healingfood-test` (`https://healingfood-test.healingfood.workers.dev`). 운영과 DB/Worker가 완전히 별개라 테스트 데이터가 운영에 절대 섞이지 않음.
   - 백엔드 배포: `cd backend && npm run deploy:test` (`wrangler deploy --env test`)
   - 백엔드 마이그레이션/시드: `npm run db:migrate:test`, `npm run db:seed:test` (+ `seed_leave_manage_permission.sql`/`seed_leave_approve_permission.sql`/`seed_attendance_manage_permission.sql`은 `wrangler d1 execute groupware-db-test --remote --env test --file=...`로 수동 적용)
-  - 프론트엔드 배포: `cd frontend && npm run deploy:test` (`frontend/.env.test`의 `VITE_API_BASE`로 테스트 백엔드를 가리켜서 빌드 후 `wrangler pages deploy dist --project-name=healingfood-test`)
+  - 프론트엔드 배포: `cd frontend && npm run deploy:test` (`frontend/.env.test`의 `VITE_API_BASE`로 테스트 백엔드를 가리켜서 빌드 후 `wrangler deploy --config dist/wrangler.json --name healingfood-test`)
+  - **[2026-08-18] 프론트엔드 배포 방식이 Pages → Workers로 전환됨.** 예전엔 `wrangler pages deploy dist --project-name=...`로 배포했는데, Cloudflare가 두 프로젝트를 Workers(정적 자산 서빙)로 자동 이전시키면서 이 명령이 조용히 "실제 서비스 중인 도메인과 무관한 별도 Pages 아티팩트"에만 배포되는 함정이 생겼음(에러 없이 성공한 것처럼 보이지만 `healingfood.healingfood.workers.dev`엔 반영 안 됨 — 실제로 한 번 이렇게 새고 나서 `wrangler deployments list --name healingfood`로 최신 버전이 안 올라온 걸 보고 발견함). `frontend/package.json`의 `deploy`/`deploy:test` 스크립트를 `wrangler deploy --config dist/wrangler.json --name <healingfood|healingfood-test>`로 이미 고쳐뒀으니 이제 `npm run deploy`/`deploy:test`만 그대로 쓰면 된다. 혹시 또 이런 증상(배포 로그가 `*.pages.dev` URL을 보여주거나 "Deployment complete" 문구가 나오면 잘못된 것 — 정상은 항상 `Deployed ... triggers` + `https://<name>.healingfood.workers.dev` 형태)이 보이면 `wrangler deployments list --name <healingfood|healingfood-test>`로 실제 반영 여부를 반드시 재확인할 것.
   - `frontend/.env.test`, `frontend/.env.production`은 `.gitignore`(`.env*`)에 걸려 git에 커밋되지 않음 — 로컬 디스크에만 존재. 새 환경에서 클론하면 다시 만들어야 함(운영 URL: `https://healingfood-api.healingfood.workers.dev`, 테스트 URL: `https://healingfood-api-test.healingfood.workers.dev`).
   - `backend/src/index.ts`의 CORS origin 배열에 두 프론트엔드 origin이 모두 등록돼 있음(같은 코드가 양쪽 Worker에 배포되므로 공유 리스트).
   - `KAKAO_REST_API_KEY` 시크릿은 Worker(환경)별로 따로 등록해야 함 — 운영에는 이미 있음, 테스트는 `wrangler secret put KAKAO_REST_API_KEY --env test`로 **사용자가 직접** 등록 필요(미등록 상태면 근무지 등록 시 지오코딩만 실패, 나머지 기능은 정상).
@@ -35,6 +36,7 @@
 
 - 개발 작업(코드 수정)이 완료되고 동작이 확인되면, **스테이징(테스트) 서버 배포는 별도로 승인받지 않고 자동으로 진행한다** — 백엔드 `npm run deploy:test`, 프론트엔드 `npm run deploy:test` (스키마 변경이 있었으면 마이그레이션/시드도 함께 적용). 이는 위 "작업 원칙"(파일 수정/실행은 승인 후에만)의 **예외이며, 테스트 서버 배포에 한정된다** — 코드 파일 자체의 수정은 여전히 계획 제시 → 사용자 승인 후에만 한다.
 - 테스트 배포가 끝나면, **그 내용을 운영(본 서버)에도 반영할지 사용자에게 반드시 먼저 물어본다.** 운영 배포(`npm run deploy`)는 사용자가 명시적으로 승인한 경우에만 진행하고, 절대 자동으로 하지 않는다.
+- **운영 배포가 완료되면, 그 배포에 포함된 변경사항을 곧바로 git commit한다.** 운영 배포 승인은 그 변경사항의 커밋 승인도 함께 포함하는 것으로 간주한다 — 별도로 "커밋해줘"라는 요청을 다시 받을 필요 없음. (일반 `git commit` 규칙인 "명시적으로 요청받았을 때만"의 예외이며, 운영 배포가 실제로 끝났을 때에 한정된다.)
 
 ## 디렉터리 구조
 
@@ -109,19 +111,25 @@ frontend/src/
 - **근무지 관리 라벨 정리** (커밋 `bf8bc61`) — "지점명"을 "근무지"로 변경(폼+목록 헤더), 반경(m) 입력창의 하드코딩된 기본값 "100"을 제거해 빈 값으로 시작하도록 수정.
 - **전자결제(전자결재) 시스템 도입** (커밋 `c3ec5a5`, `52669b6`, `09c083d`) — 기안/결재선 자동추천/승인·반려·취소 흐름 신설, 연차 신청을 결재 문서로 흡수, 기존 관리자 승인 화면(`AdminLeaveRequestsPage`, `LEAVE_APPROVE` 권한 라우트) 제거. 상세 규칙은 위 "핵심 도메인 규칙"의 "전자결제(전자결재)" 항목 참고. 기안/연차신청 모달을 좌측 폼 + 우측 "결재선" 패널 2단 레이아웃으로 통일(공용 `Modal`에 `wide` 옵션 추가, `.modal-card--wide`). 로컬에서 직급 서열 5가지 시나리오 + 승인/반려/취소/연차잔액차감 전체 흐름 검증, 운영/테스트 양쪽 마이그레이션+배포 완료.
 - **직원관리 개인정보 보호 강화** (커밋 `e7d14e6`) — 정규직/계약직·배송직 지입여부 필드 추가, 전화번호 포맷에 서울(02) 지역번호 구분 추가, `EMPLOYEE_WRITE` 없는 조회자에게 이름/부서/직급/직군/내선번호 제외 필드 마스킹 + 본인 설정 PIN으로 잠금해제(`상세보기` 화면, `MyProfilePage`에서 PIN 설정), 이름/입사일 서버+프론트 양쪽 수정불가 처리, 등록/수정 폼 제출 버튼 로딩상태+중복제출 방지. 테스트 환경에서 브라우저로 전 항목(고용형태 저장, 지입여부 DELIVERY 한정 노출, 3가지 전화번호 포맷, 마스킹→PIN 잠금해제 전체 흐름) 검증 완료 후 운영/테스트 양쪽 마이그레이션(`0011_red_blue_blade.sql`)+배포 완료. 사진 업로드(주민등록등본/보건증, "자료실") 항목은 사용자가 이번 범위에서 명시적으로 제외, 별도 요청 시 진행.
+- **조직도 기능 도입: 직급 서열 기반 트리 렌더링 + 부서 담당 임원, 전 직원에게 공개** (커밋 `a50ac68`) — 상세 규칙/구현은 아래 "현재 작업 진행 상황"의 조직도 관련 기록 참고(그 위에 쌓인 UI 다듬기 후속 커밋들이 아직 없어 세부 배경 설명을 거기 남겨둠).
+- GET /employees: 권한 없는 조회자도 마스킹된 데이터로 전사 조회 가능하도록 완화 (커밋 `932f403`)
+- 직원 수정: 입사일 재수정 허용, 급여/연차 조정을 PIN 잠금해제 후 입력 가능하도록 추가 (커밋 `a63b277`)
+- 급여/연차일수 관리자 전체 열람 허용 + 드래그 재정렬을 마우스 이벤트 기반으로 교체 (커밋 `32f45d1`)
+- 직원관리 접근을 관리자 전용으로 제한, 마이페이지 자가조회 PIN으로 전환 (커밋 `adcc99b`)
+- 마이페이지: PIN 설정/변경 시 로그인 비밀번호 재확인 + 정보수정을 팝업으로 전환 (커밋 `c91caa3`)
+- 직원관리 팝업에 자유서술형 "기타" 메모 필드 추가 (커밋 `115eff9`)
 
 **미구현**: 없음 (`App.tsx`/`menuData.ts`의 `ComingSoonPage` 대상 메뉴가 현재 모두 실제 화면으로 연결됨). 향후 새 메뉴가 추가되면 다시 이 자리에 기록.
 
 ## 현재 작업 진행 상황 (수동 갱신 섹션)
 
-> 기준: 2026-08-18. 전자결제(전자결재) 시스템 1단계는 커밋 완료(`c3ec5a5`, `52669b6`, `09c083d`, 아직 push는 안 함).
+> 기준: 2026-08-18. 전자결제(전자결재) 시스템 1단계는 커밋 완료(`c3ec5a5`, `52669b6`, `09c083d`, 아직 push는 안 함). 조직도 기능 기본형(직급 서열 기반 트리 + 부서 담당 임원)도 커밋 완료(`a50ac68`). 그 외 직원관리 관련 커밋 다수(`932f403`~`115eff9`, 다른 세션 작업)도 반영됨 — 전부 "기능 구현 상태" 참고.
 >
-> **조직도 기능(2026-08-15~08-18, 여러 세션에 걸쳐 진행) — 코드는 완성/배포까지 끝났지만 아직 커밋 안 됨:**
-> - 인사관리에 "조직도"(`/org-chart`, `frontend/src/pages/OrgChartPage.tsx`, 신규 untracked) 신설. 직급관리 화면의 직급 순서(`jobGrade.sortOrder`)를 그대로 상하관계로 해석 — 직급명이 정확히 "대표"인 사람만 최상단 루트가 되고(현재는 대표 보유자가 없어 루트가 비어있는 회사도 있을 수 있음), "상무" 이상 직급은 부서와 무관하게 임원 행에 나란히 배치된다(전자결제의 "상무 이상 = 임원" 기준과 동일한 `jobGrade.name === "상무"` 임계값 재사용).
-> - 부서에 **담당 임원(`departments.managerId`, 신규 컬럼, 마이그레이션 `0010_easy_the_spike.sql`)** 개념 추가 — 직원 등록 시 부서가 필수라 임원도 임의 부서에 소속돼 있을 수밖에 없는데, 그 소속은 조직도상 의미가 없고 실제로는 "이 부서를 누가 담당하는가"가 중요하기 때문. 부서관리 화면(`DepartmentsPage.tsx`)에 담당 임원 지정 select 추가, `PATCH /departments/:id`가 `managerId` 검증/반영.
-> - **트리 렌더링(2026-08-18 갱신)**: 부서 상자는 담당 임원별 열로 나누지 않고, 직급상 항상 임원 행(대표~상무) 전체 아래에 위치하는 **하나의 공유 트렁크**에서 각 부서로 갈라지는 구조로 그린다 — 실제 화면 좌표(`getBoundingClientRect`)를 측정해 SVG `<path>`로 꺾은선(엘보 커넥터)을 직접 그림(`ResizeObserver`+`resize` 이벤트로 리사이즈 시 재계산). 부서 나열 순서는 부서관리의 `sortOrder`(부서관리 화면 자체의 정렬 기준, 안 건드림)가 아니라 **담당 임원 순서(루트→임원 직급순)를 우선**하고 같은 담당자 안에서만 `sortOrder`로 정렬. 담당 임원이 없는 부서는 조직도에서 제외. 부서 내 직원은 직급 순서대로 세로 정렬. 카드 클릭 시 이름/부서/직급/휴대폰번호/내선번호를 보여주는 모달(`Modal` 컴포넌트 재사용, 이미 불러온 employees 데이터로 즉시 표시, 추가 API 호출 없음) 추가.
-> - 마이그레이션 0010은 로컬/테스트/운영 D1 **전부 적용 완료**, 프론트엔드+백엔드 모두 테스트/운영 **배포까지 완료**(여러 세션에 걸쳐 반복 수정 후 최신 상태 반영됨). 즉 **배포된 운영 서비스는 최신 상태지만, 이 변경사항(스키마/라우트/프론트 여러 파일 + `OrgChartPage.tsx`)을 담은 git 커밋은 아직 없음** — 커밋은 사용자가 명시적으로 요청한 적이 없어서 워킹트리에만 존재. 다음 세션에서 `git status`로 확인 가능.
-> - 운영 DB에 코드가 아닌 **데이터** 변경도 있었음(마이그레이션과 무관): 테스트성 직원 D0003(김혜경)·D0004(테스트2) 및 연관 이력(연차발생/잔액집계/배정이력) 삭제, 부서명 "시스템관리부"→"시스템부" 변경, 부서 `sortOrder` 일부 조정(물류부↔총무부 순서 교체), 여러 부서에 담당 임원 지정(최선영→영업부/고객관리부/총무부, 김동주→물류부 등 — 실제 값은 사용자가 부서관리 화면에서 직접 넣은 것이라 이 문서에 전부 기록하지 않음).
+> **조직도 UI 다듬기(2026-08-18, 이번 세션) — 코드는 완성/배포까지 끝났지만 아직 커밋 안 됨(`frontend/src/pages/OrgChartPage.tsx`, `frontend/src/index.css`, `frontend/package.json`):**
+> - 임원/부서원 카드 크기를 부서원 카드 기준으로 통일 확대(150px→210px 등), 부서 상자 안 직원은 6명까지 세로로 쌓고 초과 시 CSS Grid(`grid-auto-flow: column`)로 오른쪽에 새 열이 생기도록 변경.
+> - **화면이 좁아지면 줄바꿈 대신 조직도 전체가 비율대로 축소되도록 구현** — `.orgchart-root-row`/`.orgchart-dept-row`를 `flex-wrap: nowrap`으로 바꾸고, 실측 자연 폭(`offsetWidth`, transform과 무관하게 항상 축소 전 크기를 반환)과 뷰포트 폭을 비교해 필요할 때만 `transform: scale()`을 적용(`ResizeObserver` + `resize` 이벤트로 재계산). 카드 클릭 시 이름/부서/직급/휴대폰/내선번호 모달도 함께 추가됨.
+> - **버그 수정 이력(이번 세션에서 순차 발견/수정)**: ① `.orgchart`의 `margin-top`이 스케일 대상에 안 들어가 뷰포트 높이 계산에서 빠지면서 화면이 작아질수록 부서 상자 아래쪽이 잘리던 문제 → margin을 스케일 밖(뷰포트 쪽)으로 이동해서 해결. ② SVG 연결선이 `transform: scale()`이 걸린 `.orgchart` **내부의 자식**이라 이미 스케일된 좌표가 부모 transform으로 한 번 더 축소되던 이중 스케일링 버그(화면이 작아질수록 선이 상자에서 점점 어긋남) → SVG를 스케일 안 걸리는 `.orgchart-scale-viewport` 바깥(뷰포트 기준 절대 위치)으로 이동해서 해결. ③ 한글 웹폰트(Noto Sans KR)가 초기 렌더 이후 늦게 로드되며 카드 위치가 미세하게 밀리던 문제 → `document.fonts.ready` 완료 시 좌표 재계산 추가로 보정. 500~1440px 여러 창 너비에서 연결선-상자 위치가 픽셀 단위로 정확히 일치하는 것까지 확인 후 배포함.
+> - **[인프라] 프론트엔드 배포 방식이 Cloudflare Pages → Workers로 자동 전환됨을 발견**: 예전 `wrangler pages deploy dist --project-name=...` 명령이 조용히 실제 서비스 도메인과 무관한 곳에 배포되는 함정이 있었음(실제로 한 번 이 함정에 걸려서 운영 반영이 안 됐던 걸 `wrangler deployments list`로 뒤늦게 발견 → 올바른 명령으로 재배포함). `frontend/package.json`의 `deploy`/`deploy:test` 스크립트를 `wrangler deploy --config dist/wrangler.json --name <이름>`으로 수정 완료(위 "배포 환경" 섹션에도 기록됨) — 이 package.json 변경도 아직 미커밋.
 > - 사용자가 "작업완료"라고 밝힘 — 이번 세션에서 명시적으로 요청받았지만 미처리된 항목은 없음. 다음 세션은 사용자가 새로 요청하는 내용을 그대로 받으면 됨.
 >
 > **참고**: 이 프로젝트는 같은 폴더에서 여러 세션이 동시에 작업하는 경우가 있다 — 다른 세션이 만든 미커밋 변경을 발견해도 임의로 되돌리지 말고, 무엇인지 파악한 뒤 그대로 두거나 사용자에게 확인할 것.

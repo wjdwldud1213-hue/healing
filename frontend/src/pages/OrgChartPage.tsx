@@ -89,43 +89,74 @@ export function OrgChartPage() {
 
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
+  const scaleViewportRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastTierRowRef = useRef<HTMLDivElement>(null);
   const groupRefs = useRef(new Map<number, HTMLDivElement>());
   const [connectorPaths, setConnectorPaths] = useState<string[]>([]);
   const [svgSize, setSvgSize] = useState({ width: 0, height: 0 });
+  const [svgOffset, setSvgOffset] = useState({ left: 0, top: 0 });
+  const [scale, setScale] = useState(1);
+  const [scaledHeight, setScaledHeight] = useState<number | null>(null);
 
   // 임원 행(직급상 맨 아래 줄) 중앙에서 내려오는 트렁크 하나가 각 부서 상자로 갈라지는
   // 꺾은선(엘보 커넥터)을 실제 화면 좌표를 측정해서 그린다. 담당자가 누구든 직급 구조상
   // 부서는 항상 임원 행 전체 아래에 있으므로 트렁크 시작점은 항상 하나로 통일한다.
+  // 화면이 좁아지면 행이 줄바꿈되는 대신(.orgchart-root-row/.orgchart-dept-row는 nowrap),
+  // 조직도 전체(.orgchart)를 실측 폭 기준으로 축소(transform: scale)해서 한 화면에 담는다.
+  // offsetWidth/offsetHeight는 transform과 무관한 레이아웃 크기라 스케일이 걸려 있어도
+  // 항상 "원본(축소 전) 크기"를 그대로 알려주므로 별도 초기화 없이 매번 정확히 측정된다.
   useLayoutEffect(() => {
     function recompute() {
       const container = containerRef.current;
+      const viewport = scaleViewportRef.current;
       const trunkRow = lastTierRowRef.current;
-      if (!container || !trunkRow) return;
+      if (!container || !viewport || !trunkRow) return;
+
+      const naturalWidth = container.offsetWidth;
+      const naturalHeight = container.offsetHeight;
+      const availableWidth = viewport.clientWidth;
+      const nextScale =
+        naturalWidth > 0 && naturalWidth > availableWidth ? availableWidth / naturalWidth : 1;
+      setScale(nextScale);
+      setScaledHeight(nextScale < 1 ? naturalHeight * nextScale : null);
+
       const containerRect = container.getBoundingClientRect();
+      const viewportRect = viewport.getBoundingClientRect();
       setSvgSize({ width: containerRect.width, height: containerRect.height });
+      // svg는 transform이 걸린 .orgchart 밖(뷰포트 기준 absolute)에 둔다 — .orgchart 안에 두면
+      // 이미 스케일 적용된 좌표로 그린 선이 부모의 transform으로 한 번 더 축소되어(이중 스케일링)
+      // 화면이 작아질수록 선이 상자 위치에서 점점 더 어긋나게 된다.
+      setSvgOffset({ left: containerRect.left - viewportRect.left, top: containerRect.top - viewportRect.top });
 
       const rowRect = trunkRow.getBoundingClientRect();
-      const startX = rowRect.left + rowRect.width / 2 - containerRect.left;
-      const startY = rowRect.bottom - containerRect.top;
-      const trunkY = startY + TRUNK_DEPTH;
+      const startX = Math.round(rowRect.left + rowRect.width / 2 - containerRect.left);
+      const startY = Math.round(rowRect.bottom - containerRect.top);
+      // TRUNK_DEPTH는 스케일 1 기준으로 잡은 값이라, 화면이 줄어들 때(scale<1)도
+      // 같은 비율로 줄여야 부서 상자 사이 실제 간격(스케일된 margin-top)을 넘어서지 않는다.
+      const trunkY = Math.round(startY + TRUNK_DEPTH * nextScale);
 
       const paths: string[] = [];
       for (const group of visibleDepartmentGroups) {
         const groupEl = groupRefs.current.get(group.departmentId);
         if (!groupEl) continue;
         const groupRect = groupEl.getBoundingClientRect();
-        const endX = groupRect.left + groupRect.width / 2 - containerRect.left;
-        const endY = groupRect.top - containerRect.top;
+        // 좌표를 정수로 스냅한다 — 소수점 좌표는 SVG 선이 안티앨리어싱으로 흐릿하게(얇아 보이게)
+        // 렌더링돼 .orgchart-connector(div, 2px)와 굵기가 달라 보이는 원인이었다.
+        const endX = Math.round(groupRect.left + groupRect.width / 2 - containerRect.left);
+        const endY = Math.round(groupRect.top - containerRect.top);
         paths.push(`M ${startX} ${startY} L ${startX} ${trunkY} L ${endX} ${trunkY} L ${endX} ${endY}`);
       }
       setConnectorPaths(paths);
     }
 
     recompute();
+    // 한글 웹폰트(Noto Sans KR)가 초기 렌더 이후 뒤늦게 로드되면 텍스트 폭/줄높이가 미세하게
+    // 바뀌면서 카드 위치가 살짝 밀릴 수 있는데, 이건 뷰포트 자체 크기 변화가 아니라
+    // ResizeObserver가 못 잡는다 — 폰트 로딩 완료 시 한 번 더 재계산해서 보정한다.
+    document.fonts?.ready.then(recompute).catch(() => {});
     const observer = new ResizeObserver(recompute);
-    if (containerRef.current) observer.observe(containerRef.current);
+    if (scaleViewportRef.current) observer.observe(scaleViewportRef.current);
     window.addEventListener("resize", recompute);
     return () => {
       observer.disconnect();
@@ -143,18 +174,27 @@ export function OrgChartPage() {
       {error && <p className="error">{error}</p>}
 
       {hasContent && (
-        <div className="orgchart" ref={containerRef}>
-          <svg
-            className="orgchart-svg"
-            width={svgSize.width}
-            height={svgSize.height}
-            aria-hidden="true"
-          >
-            {connectorPaths.map((d, i) => (
-              <path key={i} className="orgchart-connector-path" d={d} />
-            ))}
-          </svg>
-
+        <div
+          className="orgchart-scale-viewport"
+          ref={scaleViewportRef}
+          style={scaledHeight != null ? { height: scaledHeight } : undefined}
+        >
+        <svg
+          className="orgchart-svg"
+          width={svgSize.width}
+          height={svgSize.height}
+          style={{ left: svgOffset.left, top: svgOffset.top }}
+          aria-hidden="true"
+        >
+          {connectorPaths.map((d, i) => (
+            <path key={i} className="orgchart-connector-path" d={d} />
+          ))}
+        </svg>
+        <div
+          className="orgchart"
+          ref={containerRef}
+          style={scale < 1 ? { transform: `scale(${scale})` } : undefined}
+        >
           {roots.length > 0 ? (
             <>
               <div className="orgchart-root-row" ref={executiveRowIsLastTier ? undefined : lastTierRowRef}>
@@ -195,6 +235,7 @@ export function OrgChartPage() {
               ))}
             </div>
           )}
+        </div>
         </div>
       )}
 

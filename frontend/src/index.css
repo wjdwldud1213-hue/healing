@@ -1618,18 +1618,26 @@ button.login-btn:disabled {
 }
 
 /* ── 조직도 ──────────────────────────────────────────── */
-.orgchart {
+.orgchart-scale-viewport {
   position: relative;
+  width: 100%;
   margin-top: 16px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.orgchart {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  transform-origin: top center;
 }
 
 .orgchart-svg {
   position: absolute;
-  top: 0;
-  left: 0;
   pointer-events: none;
   z-index: 0;
 }
@@ -1643,7 +1651,7 @@ button.login-btn:disabled {
 .orgchart-root-row {
   display: flex;
   gap: 18px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
 }
 
@@ -1657,7 +1665,7 @@ button.login-btn:disabled {
   width: 100%;
   display: flex;
   gap: 28px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
 }
 
@@ -1683,8 +1691,9 @@ button.login-btn:disabled {
 }
 
 .orgchart-dept-members {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(6, auto);
   gap: 12px;
 }
 

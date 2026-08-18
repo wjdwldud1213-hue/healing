@@ -8,9 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "npm run build && wrangler dev",
-    "deploy": "npm run build && wrangler pages deploy dist --project-name=healingfood",
+    "deploy": "npm run build && wrangler deploy --config dist/wrangler.json --name healingfood",
     "build:test": "tsc -b && vite build --mode test",
-    "deploy:test": "npm run build:test && wrangler pages deploy dist --project-name=healingfood-test"
+    "deploy:test": "npm run build:test && wrangler deploy --config dist/wrangler.json --name healingfood-test"
   },
   "dependencies": {
     "react": "^19.2.8",

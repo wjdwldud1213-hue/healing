@@ -124,6 +124,8 @@ export const employees = sqliteTable(
     mobilePhone: text("mobile_phone").notNull(),
     extensionNumber: text("extension_number"),
     address: text("address"),
+    // 직원관리 팝업 하단의 자유 서술형 메모 — 정해진 형식 없이 특이사항을 기록.
+    notes: text("notes"),
     // 셀프 비밀번호 재설정용 카카오 계정 연동. 한 카카오 계정은 한 직원에만 연동되며(unique),
     // 이 값이 없으면 RequireAuth가 /link-kakao로 강제 이동시킨다.
     kakaoUserId: text("kakao_user_id").unique(),

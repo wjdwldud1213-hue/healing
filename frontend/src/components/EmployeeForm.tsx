@@ -53,6 +53,7 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
   );
   const [isOwnerOperator, setIsOwnerOperator] = useState(employee?.isOwnerOperator ?? false);
   const [address, setAddress] = useState(employee?.address ?? "");
+  const [notes, setNotes] = useState(employee?.notes ?? "");
   const [baseSalary, setBaseSalary] = useState("");
   const [initialLeaveDays, setInitialLeaveDays] = useState("");
   // 수정 모드에서 "현재값" 기준선 — 급여/연차일수 필드가 이 값과 달라진 경우에만 새 이력을 남긴다.
@@ -112,6 +113,7 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
           employmentType,
           isOwnerOperator: jobType === "DELIVERY" ? isOwnerOperator : null,
           address: address || null,
+          notes: notes || null,
           baseSalary: baseSalary ? Number(baseSalary) : undefined,
           initialLeaveDays: initialLeaveDays ? Number(initialLeaveDays) : undefined,
           employmentStatus,
@@ -128,6 +130,7 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
           jobGradeId,
           hireDate,
           address: address || null,
+          notes: notes || null,
           mobilePhone,
           extensionNumber: extensionNumber || null,
           roleId,
@@ -352,6 +355,15 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
               </option>
             ))}
           </select>
+        </label>
+        <label>
+          기타
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            placeholder="특이사항을 자유롭게 적어주세요"
+          />
         </label>
         {error && <p className="error">{error}</p>}
         <div className="form-actions">

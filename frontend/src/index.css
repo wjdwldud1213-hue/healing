@@ -756,6 +756,7 @@ td {
 
 input,
 select,
+textarea,
 button {
   font-size: 0.9rem;
   padding: 6px 8px;
@@ -764,6 +765,12 @@ button {
   /* 브라우저 기본값(Arial 등)이 아니라 본문과 동일한 폰트를 쓰도록 명시 —
      지정 안 하면 label/본문 텍스트는 body에서 상속되지만 폼 컨트롤은 상속되지 않는다. */
   font-family: inherit;
+}
+
+/* textarea는 input/select와 달리 cols 속성 때문에 flex stretch만으로 폭이 안 채워진다. */
+textarea {
+  width: 100%;
+  resize: vertical;
 }
 
 /* 크롬 계열은 type=date 내부 연/월/일 세그먼트를 shadow DOM으로 렌더링하는데,

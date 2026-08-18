@@ -47,6 +47,7 @@ const SENSITIVE_FIELDS = [
   "isOwnerOperator",
   "roleId",
   "role",
+  "notes",
 ] as const;
 
 function maskSensitiveFields<T extends Record<string, unknown>>(emp: T): T {
@@ -245,6 +246,7 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
       extensionNumber?: string | null;
       roleId?: number;
       address?: string | null;
+      notes?: string | null;
       baseSalary?: number;
       initialLeaveDays?: number;
       employmentStatus?: string;
@@ -264,6 +266,7 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
     roleId,
     extensionNumber,
     address,
+    notes,
     baseSalary,
     initialLeaveDays,
     employmentStatus,
@@ -329,6 +332,7 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
       mobilePhone,
       extensionNumber: extensionNumber ?? null,
       address: address ?? null,
+      notes: notes ?? null,
       employmentStatus: employmentStatus === "LEAVE" ? "LEAVE" : "ACTIVE",
       jobType: (body.jobType as "OFFICE" | "DELIVERY" | "SALES" | undefined) ?? "OFFICE",
       employmentType: (body.employmentType as "REGULAR" | "CONTRACT" | undefined) ?? "REGULAR",
@@ -451,6 +455,7 @@ employeesRoute.patch("/:id", async (c) => {
   const updates: Record<string, unknown> = { updatedAt: new Date().toISOString(), updatedBy: actorId };
   if (typeof body.hireDate === "string" && body.hireDate.trim()) updates.hireDate = body.hireDate.trim();
   if ("address" in body) updates.address = body.address ?? null;
+  if ("notes" in body) updates.notes = body.notes ?? null;
   if (typeof body.mobilePhone === "string") updates.mobilePhone = body.mobilePhone.trim();
   if ("extensionNumber" in body) updates.extensionNumber = body.extensionNumber ?? null;
   if (typeof body.roleId === "number") updates.roleId = body.roleId;

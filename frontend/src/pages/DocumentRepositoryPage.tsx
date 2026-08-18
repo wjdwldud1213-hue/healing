@@ -203,11 +203,16 @@ export function DocumentRepositoryPage() {
 
   return (
     <section>
-      <h2>자료실</h2>
-      <p className="hint">
-        주민등록등본/보건증 등 개인 서류를 직접 올릴 수 있습니다. "전체공개"는 모든 직원이,
-        "부서공개"는 본인과 같은 부서 직원만, "관리자공개"는 본인과 관리자만 볼 수 있습니다.
-      </p>
+      <h2>
+        자료실
+        <span className="help-icon">
+          ?
+          <span className="help-icon-tooltip">
+            주민등록등본/보건증 등 개인 서류를 직접 올릴 수 있습니다. "전체공개"는 모든 직원이,
+            "부서공개"는 본인과 같은 부서 직원만, "관리자공개"는 본인과 관리자만 볼 수 있습니다.
+          </span>
+        </span>
+      </h2>
 
       <div className="toolbar">
         <select

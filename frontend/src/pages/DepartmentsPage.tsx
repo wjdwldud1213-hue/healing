@@ -56,12 +56,17 @@ export function DepartmentsPage() {
 
   return (
     <section>
-      <h2>부서 관리</h2>
-      <p className="hint">
-        부서코드는 A~Z 중 한 글자만 배정할 수 있고, 한 번 쓰면 다른 부서에 다시 배정할 수
-        없습니다. (이미 발급된 사번의 의미가 바뀌지 않도록 하기 위함) ⠿ 아이콘을 드래그해서
-        순서를 바꿀 수 있습니다.
-      </p>
+      <h2>
+        부서 관리
+        <span className="help-icon">
+          ?
+          <span className="help-icon-tooltip">
+            부서코드는 A~Z 중 한 글자만 배정할 수 있고, 한 번 쓰면 다른 부서에 다시 배정할 수
+            없습니다. (이미 발급된 사번의 의미가 바뀌지 않도록 하기 위함) ⠿ 아이콘을 드래그해서
+            순서를 바꿀 수 있습니다.
+          </span>
+        </span>
+      </h2>
 
       <form onSubmit={handleCreate} className="inline-form">
         <input

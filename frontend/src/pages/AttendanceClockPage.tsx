@@ -133,14 +133,19 @@ export function AttendanceClockPage() {
 
   return (
     <section>
-      <h2>출근/퇴근</h2>
-      <p className="hint">
-        {jobType === "OFFICE" && "지정된 근무지 100m 이내에서만 출근/퇴근할 수 있습니다."}
-        {jobType === "DELIVERY" &&
-          "출근은 지정된 근무지 100m 이내에서만 가능하고, 퇴근은 위치와 관계없이 가능합니다(근무지 반경 안이면 퇴근, 밖이면 현장퇴근으로 기록)."}
-        {jobType === "SALES" &&
-          "위치와 관계없이 출근/퇴근할 수 있습니다(근무지 반경 안이면 출근/퇴근, 밖이면 현장출근/현장퇴근으로 기록)."}
-      </p>
+      <h2>
+        출근/퇴근
+        <span className="help-icon">
+          ?
+          <span className="help-icon-tooltip">
+            {jobType === "OFFICE" && "지정된 근무지 100m 이내에서만 출근/퇴근할 수 있습니다."}
+            {jobType === "DELIVERY" &&
+              "출근은 지정된 근무지 100m 이내에서만 가능하고, 퇴근은 위치와 관계없이 가능합니다(근무지 반경 안이면 퇴근, 밖이면 현장퇴근으로 기록)."}
+            {jobType === "SALES" &&
+              "위치와 관계없이 출근/퇴근할 수 있습니다(근무지 반경 안이면 출근/퇴근, 밖이면 현장출근/현장퇴근으로 기록)."}
+          </span>
+        </span>
+      </h2>
 
       {positionError && <p className="error">{positionError}</p>}
       {error && <p className="error">{error}</p>}

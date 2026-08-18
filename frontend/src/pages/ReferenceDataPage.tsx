@@ -42,11 +42,16 @@ export function ReferenceDataPage() {
 
   return (
     <section>
-      <h2>직급 관리</h2>
-      <p className="hint">
-        직급 체계가 바뀌어도 기존 직원 데이터가 깨지지 않도록, 삭제 대신 비활성화로 관리합니다.
-        ⠿ 아이콘을 드래그해서 순서를 바꿀 수 있습니다.
-      </p>
+      <h2>
+        직급 관리
+        <span className="help-icon">
+          ?
+          <span className="help-icon-tooltip">
+            직급 체계가 바뀌어도 기존 직원 데이터가 깨지지 않도록, 삭제 대신 비활성화로 관리합니다.
+            ⠿ 아이콘을 드래그해서 순서를 바꿀 수 있습니다.
+          </span>
+        </span>
+      </h2>
 
       <form onSubmit={handleCreate} className="inline-form">
         <input placeholder="이름" value={name} onChange={(e) => setName(e.target.value)} />

@@ -20,10 +20,15 @@ export function ApprovalInboxPage() {
 
   return (
     <section>
-      <h2>결재함</h2>
-      <p className="hint">
-        {scope === "pending" ? "내가 지금 결재할 차례인 문서 목록입니다." : "내가 이미 결재한 문서 목록입니다."}
-      </p>
+      <h2>
+        결재함
+        <span className="help-icon">
+          ?
+          <span className="help-icon-tooltip">
+            {scope === "pending" ? "내가 지금 결재할 차례인 문서 목록입니다." : "내가 이미 결재한 문서 목록입니다."}
+          </span>
+        </span>
+      </h2>
 
       <div className="seg" style={{ display: "inline-flex", marginBottom: 16 }}>
         <label className="seg-opt">

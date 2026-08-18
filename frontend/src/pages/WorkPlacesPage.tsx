@@ -87,11 +87,16 @@ export function WorkPlacesPage() {
 
   return (
     <section>
-      <h2>근무지 관리</h2>
-      <p className="hint">
-        입력한 주소를 좌표로 자동 변환해 사무직·배송직 출근 시 위치를 검증합니다. 삭제 대신
-        비활성화로 관리합니다.
-      </p>
+      <h2>
+        근무지 관리
+        <span className="help-icon">
+          ?
+          <span className="help-icon-tooltip">
+            입력한 주소를 좌표로 자동 변환해 사무직·배송직 출근 시 위치를 검증합니다. 삭제 대신
+            비활성화로 관리합니다.
+          </span>
+        </span>
+      </h2>
 
       <div className="card">
         <h3>근무지 추가</h3>

@@ -101,12 +101,17 @@ export function RolesPage() {
 
   return (
     <section>
-      <h2>권한 관리</h2>
-      <p className="hint">
-        역할을 추가하고, "설정"에서 이름/설명과 권한(메뉴/기능)을 함께 관리합니다. 여기서 바뀐
-        내용은 즉시 모든 사용자의 접근 권한에 반영됩니다. ⠿ 아이콘을 드래그해서 순서를 바꿀 수
-        있습니다.
-      </p>
+      <h2>
+        권한 관리
+        <span className="help-icon">
+          ?
+          <span className="help-icon-tooltip">
+            역할을 추가하고, "설정"에서 이름/설명과 권한(메뉴/기능)을 함께 관리합니다. 여기서 바뀐
+            내용은 즉시 모든 사용자의 접근 권한에 반영됩니다. ⠿ 아이콘을 드래그해서 순서를 바꿀 수
+            있습니다.
+          </span>
+        </span>
+      </h2>
 
       <form onSubmit={handleCreateRole} className="inline-form">
         <input

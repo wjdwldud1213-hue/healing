@@ -27,8 +27,15 @@ export function ApprovalAllDocumentsPage() {
 
   return (
     <section>
-      <h2>전체 문서함</h2>
-      <p className="hint">전사의 모든 결재 문서를 열람할 수 있습니다 (승인/반려는 결재선에 지정된 사람만 가능합니다).</p>
+      <h2>
+        전체 문서함
+        <span className="help-icon">
+          ?
+          <span className="help-icon-tooltip">
+            전사의 모든 결재 문서를 열람할 수 있습니다 (승인/반려는 결재선에 지정된 사람만 가능합니다).
+          </span>
+        </span>
+      </h2>
 
       {error && <p className="error">{error}</p>}
 

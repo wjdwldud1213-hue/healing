@@ -249,8 +249,13 @@ export function AttendanceHistoryPage() {
 
   return (
     <section>
-      <h2>근태내역조회</h2>
-      <p className="hint">날짜별 연차 사용/신청 내역과 출퇴근 기록을 달력으로 확인합니다.</p>
+      <h2>
+        근태내역조회
+        <span className="help-icon">
+          ?
+          <span className="help-icon-tooltip">날짜별 연차 사용/신청 내역과 출퇴근 기록을 달력으로 확인합니다.</span>
+        </span>
+      </h2>
 
       {canViewOthers && (
         <div className="toolbar">

@@ -106,11 +106,16 @@ export function LeaveManagementPage() {
 
   return (
     <section>
-      <h2>연차 관리</h2>
-      <p className="hint">
-        본인의 연차 현황과 신청 내역만 조회할 수 있습니다. 신청한 연차는 승인 대기 상태로
-        등록되며, 관리자 승인 후 반영됩니다.
-      </p>
+      <h2>
+        연차 관리
+        <span className="help-icon">
+          ?
+          <span className="help-icon-tooltip">
+            본인의 연차 현황과 신청 내역만 조회할 수 있습니다. 신청한 연차는 승인 대기 상태로
+            등록되며, 관리자 승인 후 반영됩니다.
+          </span>
+        </span>
+      </h2>
 
       <div className="toolbar">
         <button type="button" className="toolbar-end" onClick={openApplyModal}>

@@ -168,8 +168,15 @@ export function OrgChartPage() {
 
   return (
     <section>
-      <h2>조직도</h2>
-      <p className="hint">직급관리에 설정된 직급 순서와 부서관리의 담당 임원 지정을 기준으로 자동 구성됩니다.</p>
+      <h2>
+        조직도
+        <span className="help-icon">
+          ?
+          <span className="help-icon-tooltip">
+            직급관리에 설정된 직급 순서와 부서관리의 담당 임원 지정을 기준으로 자동 구성됩니다.
+          </span>
+        </span>
+      </h2>
 
       {error && <p className="error">{error}</p>}
 

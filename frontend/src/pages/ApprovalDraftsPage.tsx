@@ -31,8 +31,13 @@ export function ApprovalDraftsPage() {
 
   return (
     <section>
-      <h2>기안함</h2>
-      <p className="hint">내가 작성한 결재 문서 목록입니다.</p>
+      <h2>
+        기안함
+        <span className="help-icon">
+          ?
+          <span className="help-icon-tooltip">내가 작성한 결재 문서 목록입니다.</span>
+        </span>
+      </h2>
 
       <div className="toolbar">
         <button type="button" className="toolbar-end" onClick={() => setShowComposeModal(true)}>

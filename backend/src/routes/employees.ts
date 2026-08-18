@@ -165,6 +165,9 @@ employeesRoute.post("/:id/unlock", async (c) => {
 });
 
 // 본인만 자신의 조회용 비밀번호(PIN)를 설정/변경할 수 있다.
+// 세션만 있으면(로그인 비밀번호 확인 없이) 조회용 비밀번호를 마음대로 바꿔버릴 수 있으면
+// PIN이 "2차 잠금"으로서 의미가 없다(자리 비운 사이 세션을 도용당한 경우 등) — 그래서
+// 로그인 비밀번호를 다시 입력받아 확인한 뒤에만 PIN을 설정/변경할 수 있게 한다.
 employeesRoute.post("/:id/set-view-pin", async (c) => {
   const targetId = c.req.param("id");
   const actorId = c.get("currentUserId")!;
@@ -172,13 +175,23 @@ employeesRoute.post("/:id/set-view-pin", async (c) => {
     return c.json({ error: "본인만 조회용 비밀번호를 설정할 수 있습니다." }, 403);
   }
 
-  const body = await c.req.json<{ pin?: string }>().catch(() => ({}) as { pin?: string });
+  const body = await c.req
+    .json<{ pin?: string; currentPassword?: string }>()
+    .catch(() => ({}) as { pin?: string; currentPassword?: string });
   const pin = (body.pin ?? "").trim();
   if (!/^\d{4,}$/.test(pin)) {
     return c.json({ error: "조회용 비밀번호는 숫자 4자리 이상이어야 합니다." }, 400);
   }
 
   const db = getDb(c.env.DB);
+  const actor = await db.query.employees.findFirst({ where: eq(employees.employeeId, actorId) });
+  const passwordOk =
+    typeof body.currentPassword === "string" &&
+    (await bcrypt.compare(body.currentPassword, actor!.passwordHash));
+  if (!passwordOk) {
+    return c.json({ error: "현재 로그인 비밀번호가 일치하지 않습니다." }, 403);
+  }
+
   const viewPinHash = await bcrypt.hash(pin, 10);
   await db
     .update(employees)

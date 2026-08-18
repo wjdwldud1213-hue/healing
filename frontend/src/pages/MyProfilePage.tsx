@@ -3,24 +3,98 @@ import type { FormEvent } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { formatPhoneNumber } from "../lib/phone";
+import { Modal } from "../components/Modal";
 
 type CompensationLeaveSummary = { currentSalary: number | null; currentYearGrantedDays: number };
+
+function EditContactModal({
+  employeeId,
+  initialMobilePhone,
+  initialExtensionNumber,
+  initialAddress,
+  unlocked,
+  onDone,
+}: {
+  employeeId: string;
+  initialMobilePhone: string;
+  initialExtensionNumber: string;
+  initialAddress: string;
+  unlocked: boolean;
+  onDone: () => void;
+}) {
+  const [mobilePhone, setMobilePhone] = useState(formatPhoneNumber(initialMobilePhone));
+  const [extensionNumber, setExtensionNumber] = useState(formatPhoneNumber(initialExtensionNumber));
+  const [address, setAddress] = useState(initialAddress);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      await api.patch(`/employees/${employeeId}`, {
+        mobilePhone,
+        extensionNumber: extensionNumber || null,
+        address: address || null,
+      });
+      onDone();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <h3>내 정보 수정</h3>
+      <form onSubmit={handleSubmit} className="stacked-form">
+        <label>
+          휴대폰번호
+          <input
+            value={unlocked ? mobilePhone : ""}
+            onChange={(e) => setMobilePhone(formatPhoneNumber(e.target.value))}
+            placeholder={unlocked ? "" : "PIN 입력 후 수정 가능"}
+            disabled={!unlocked}
+            required
+          />
+        </label>
+        <label>
+          내선번호 (선택)
+          <input
+            value={extensionNumber}
+            onChange={(e) => setExtensionNumber(formatPhoneNumber(e.target.value))}
+          />
+        </label>
+        <label>
+          주소
+          <input value={address} onChange={(e) => setAddress(e.target.value)} />
+        </label>
+        {error && <p className="error">{error}</p>}
+        <div className="form-actions">
+          <button type="submit" disabled={submitting}>
+            {submitting ? "저장 중..." : "저장"}
+          </button>
+          <button type="button" onClick={onDone} disabled={submitting}>
+            취소
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
 
 // 사번/이름/부서/직급/내선번호/주소는 PIN 없이 항상 보이고, 입사일/급여/연차일수/휴대폰번호는
 // 본인이 설정한 조회용 비밀번호(PIN)를 입력해야 보인다(다른 사람이 아니라 본인이 스스로
 // 잠금해제하는 자가조회 방식 — POST /employees/:id/unlock을 본인 사번으로 호출).
 export function MyProfilePage() {
   const { currentUser, refresh } = useAuth();
-  const [mobilePhone, setMobilePhone] = useState(formatPhoneNumber(currentUser?.mobilePhone ?? ""));
-  const [extensionNumber, setExtensionNumber] = useState(
-    formatPhoneNumber(currentUser?.extensionNumber ?? ""),
-  );
-  const [address, setAddress] = useState(currentUser?.address ?? "");
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
 
   const [pin, setPin] = useState("");
   const [pinConfirm, setPinConfirm] = useState("");
+  const [pinCurrentPassword, setPinCurrentPassword] = useState("");
   const [pinMessage, setPinMessage] = useState<string | null>(null);
   const [pinError, setPinError] = useState<string | null>(null);
   const [pinSubmitting, setPinSubmitting] = useState(false);
@@ -44,28 +118,10 @@ export function MyProfilePage() {
       );
       setSummary(result);
       setUnlocked(true);
-      setMobilePhone(formatPhoneNumber(currentUser!.mobilePhone ?? ""));
     } catch (err) {
       setUnlockError((err as Error).message);
     } finally {
       setUnlockLoading(false);
-    }
-  }
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setMessage(null);
-    try {
-      await api.patch(`/employees/${currentUser!.employeeId}`, {
-        mobilePhone,
-        extensionNumber: extensionNumber || null,
-        address: address || null,
-      });
-      await refresh();
-      setMessage("저장되었습니다.");
-    } catch (err) {
-      setError((err as Error).message);
     }
   }
 
@@ -79,9 +135,13 @@ export function MyProfilePage() {
     }
     setPinSubmitting(true);
     try {
-      await api.post(`/employees/${currentUser!.employeeId}/set-view-pin`, { pin });
+      await api.post(`/employees/${currentUser!.employeeId}/set-view-pin`, {
+        pin,
+        currentPassword: pinCurrentPassword,
+      });
       setPin("");
       setPinConfirm("");
+      setPinCurrentPassword("");
       setPinMessage("조회용 비밀번호가 설정되었습니다.");
     } catch (err) {
       setPinError((err as Error).message);
@@ -137,8 +197,8 @@ export function MyProfilePage() {
           <b>주소</b> {currentUser.address ?? "-"}
         </p>
         <p className="hint">
-          이름/부서/직급 등은 관리자만 변경할 수 있습니다. 아래에서 연락처/주소만 직접 수정할 수
-          있습니다.
+          이름/부서/직급 등은 관리자만 변경할 수 있습니다. 연락처/주소 수정은 아래 "수정"
+          버튼으로 할 수 있습니다.
         </p>
 
         {!unlocked && (
@@ -160,32 +220,11 @@ export function MyProfilePage() {
           </form>
         )}
 
-        <form onSubmit={handleSubmit} className="stacked-form">
-          <label>
-            휴대폰번호
-            <input
-              value={unlocked ? mobilePhone : ""}
-              onChange={(e) => setMobilePhone(formatPhoneNumber(e.target.value))}
-              placeholder={unlocked ? "" : "PIN 입력 후 수정 가능"}
-              disabled={!unlocked}
-              required
-            />
-          </label>
-          <label>
-            내선번호 (선택)
-            <input
-              value={extensionNumber ?? ""}
-              onChange={(e) => setExtensionNumber(formatPhoneNumber(e.target.value))}
-            />
-          </label>
-          <label>
-            주소
-            <input value={address ?? ""} onChange={(e) => setAddress(e.target.value)} />
-          </label>
-          {message && <p className="notice">{message}</p>}
-          {error && <p className="error">{error}</p>}
-          <button type="submit">저장</button>
-        </form>
+        <div className="form-actions">
+          <button type="button" onClick={() => setEditOpen(true)}>
+            수정
+          </button>
+        </div>
       </div>
       <div className="card">
         <h3>카카오 계정 연동</h3>
@@ -198,9 +237,19 @@ export function MyProfilePage() {
         <h3>조회용 비밀번호(PIN)</h3>
         <p className="hint">
           입사일/급여/연차일수/휴대폰번호처럼 개인정보에 해당하는 항목은 이 화면에서도 기본적으로
-          가려집니다. 여기서 설정한 비밀번호를 입력해야 위에서 직접 확인할 수 있습니다.
+          가려집니다. 여기서 설정한 비밀번호를 입력해야 위에서 직접 확인할 수 있습니다. 세션만
+          훔쳐서는 PIN을 바꿀 수 없도록, 설정/변경 시 로그인 비밀번호를 다시 확인합니다.
         </p>
         <form onSubmit={handleSetPin} className="stacked-form">
+          <label>
+            현재 로그인 비밀번호
+            <input
+              type="password"
+              value={pinCurrentPassword}
+              onChange={(e) => setPinCurrentPassword(e.target.value)}
+              required
+            />
+          </label>
           <label>
             새 조회용 비밀번호 (숫자 4자리 이상)
             <input
@@ -229,6 +278,22 @@ export function MyProfilePage() {
           </button>
         </form>
       </div>
+
+      {editOpen && (
+        <Modal onClose={() => setEditOpen(false)}>
+          <EditContactModal
+            employeeId={currentUser.employeeId}
+            initialMobilePhone={currentUser.mobilePhone ?? ""}
+            initialExtensionNumber={currentUser.extensionNumber ?? ""}
+            initialAddress={currentUser.address ?? ""}
+            unlocked={unlocked}
+            onDone={async () => {
+              await refresh();
+              setEditOpen(false);
+            }}
+          />
+        </Modal>
+      )}
     </section>
   );
 }

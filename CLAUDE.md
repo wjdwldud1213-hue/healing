@@ -43,14 +43,15 @@
 ```
 backend/src/
   routes/       auth, departments, employees, leave, permissions, reference, roles,
-                attendance(출근/퇴근/근태조회), workPlaces(근무지 CRUD), approval(전자결제)
+                attendance(출근/퇴근/근태조회), workPlaces(근무지 CRUD), approval(전자결제),
+                documents(자료실 파일 업로드/조회/다운로드/삭제, R2 연동)
   lib/          db, employeeId(사번 채번), leaveAccrual(연차 자동발생), leaveApproval(연차 승인/반려 —
                 최종 결재 승인 시 approval.ts가 호출), approval(전자결제 문서 생성/승인/반려/취소),
                 approvalLine(결재선 자동추천), permissions, attendance(Haversine 거리계산 + 출퇴근 비즈니스 로직),
                 geocode(카카오 로컬 API로 주소 -> 좌표 변환, work_places 등록/수정 시 서버가 대행)
   middleware/   auth, permission
   db/schema.ts  Drizzle 스키마 (도메인 규칙이 주석으로 문서화되어 있음)
-  drizzle/      마이그레이션 (0000~0009)
+  drizzle/      마이그레이션 (0000~0015)
 
 frontend/src/
   pages/        LoginPage, HomePage, MyProfilePage, EmployeesPage, DepartmentsPage,
@@ -58,7 +59,9 @@ frontend/src/
                 LeaveManagementPage(본인 연차), ApprovalDraftsPage(기안함), ApprovalInboxPage(결재함),
                 ApprovalAllDocumentsPage(전체 문서함 — 상무 이상만),
                 AttendanceHistoryPage(근태내역조회 달력), AttendanceClockPage(출근/퇴근),
-                WorkPlacesPage(근무지 관리), ComingSoonPage(미구현 메뉴 placeholder — 현재 대상 없음)
+                WorkPlacesPage(근무지 관리), OrgChartPage(조직도),
+                DocumentRepositoryPage(자료실 — 커뮤니티 카테고리),
+                ComingSoonPage(미구현 메뉴 placeholder — 현재 대상 없음)
   layout/       AppShell, menuData
   auth/         AuthContext, RequireAuth, RequirePermission
   components/   EmployeeForm, Modal(wide 옵션으로 2단 레이아웃 모달 지원), ApprovalLinePicker(결재선 편집/미리보기),
@@ -81,7 +84,11 @@ frontend/src/
 - **Geolocation은 컴포넌트가 `navigator.geolocation`을 직접 쓰지 않고 항상 `frontend/src/lib/geolocation.ts`의 `GeoProvider` 인터페이스(`webGeoProvider` 구현체)를 통해서만 접근한다.** 추후 Capacitor/React Native로 전환할 때 이 구현체만 교체하면 되도록 설계됨.
 - **연차관리/근태관리 관련 권한 코드**: `LEAVE_MANAGE`, `ATTENDANCE_MANAGE`(근무지 CRUD + 타 직원 근태 조회) — 모두 `permissions.category = '근태관리'`. `LEAVE_APPROVE`는 전자결제 도입(아래 항목 참고)으로 더 이상 라우트에서 쓰이지 않음 — DB에는 남아있지만(`permissions`/`role_permissions` 행 삭제 안 함) 실사용처 없음.
 - **전자결제(전자결재)**: `approval_documents`(문서 헤더)/`approval_steps`(결재 단계) 두 테이블로 구성. 문서 유형은 `GENERAL`(자유양식)과 `LEAVE`(연차 신청, 상세는 `leaveRequests.documentId`로 역참조)만 있음(1단계 범위). 결재선은 `backend/src/lib/approvalLine.ts`의 `recommendDefaultApprovalLine()`이 자동 추천한다 — **1차: 기안자와 같은 부서에서 본인 제외 직급 최고자, 2차(최종): 물류부(부서코드 `C`) 기안이면 전사의 '상무', 그 외 모든 부서는 전사의 '실장'로 고정**(부서 무관, 직급명 기준). 기안자 본인이 이미 부서 내 최고직급자면 1차 슬롯이 아예 생성되지 않는다 — 이때 `approval_steps.stepOrder`는 1로 당겨지지 않고 원래 슬롯 번호 2를 그대로 유지한다(문서마다 stepOrder가 1부터 연속일 필요 없음, "다음 단계"는 항상 `MIN(stepOrder) WHERE stepOrder > 현재`로 찾음). 승인/반려/취소 로직은 `backend/src/lib/approval.ts`. 결재선에 지정된 사람만 승인/반려 가능하며, **상무 이상 직급(`job_grades.sortOrder >= '상무'의 sortOrder`)은 결재선에 없어도 전체 문서함(`/approval/all`)에서 모든 문서를 열람 가능**(승인/반려 권한은 아님, `isExecutiveViewer()`). 연차 신청은 `POST /leave/requests`가 내부적으로 `createApprovalDocument(documentType:"LEAVE")`를 호출해 결재 문서로 생성되며, 최종 승인 시에만 `leaveApproval.ts`의 `buildLeaveApprovalUpdates()`로 잔액이 차감된다(문서/단계 갱신과 한 `db.batch()`로 원자 처리). **알려진 제약**: 연차 신청 화면에는 결재선 편집 UI가 없어서, 추천 결재선이 완전히 비면(전사 최고직급자 본인이 신청) 신청 자체가 막힌다.
+- **자료실(`documents`)**: 직원이 직접 파일(주민등록등본/보건증 등)을 올리는 기능. 실제 파일은 R2(`DOCUMENTS` 버킷, 운영/테스트 완전 분리 — `healingfood-documents`/`healingfood-documents-test`)에 저장하고 `documents` 테이블은 메타데이터+공개범위만 관리한다. 공개범위는 3단계(`PUBLIC` 전체공개/`DEPARTMENT` 부서공개/`ADMIN` 관리자공개, 업로더 본인은 항상 열람 가능)이며 `backend/src/routes/documents.ts`가 매 요청마다 재검증한다. **보건증은 PUBLIC, 주민등록등본은 ADMIN으로 카테고리별 공개범위가 고정**(`FIXED_VISIBILITY_BY_CATEGORY`가 클라이언트 선택값을 서버에서 덮어씀, "기타"만 자유 선택). 보건증에만 유효기간(`validFrom`/`validUntil`) 입력 가능. **자동 삭제/보관기간 정책은 없음** — 업로더 본인 또는 `EMPLOYEE_WRITE` 보유자가 `DELETE /documents/:id`로 명시적으로 삭제하기 전까지 R2와 D1 양쪽에 무기한 보관된다.
+- **화면 상단 안내 문구는 상시 노출 `<p className="hint">` 대신 제목 옆 물음표 아이콘 호버 툴팁으로 작성한다** (`.help-icon`/`.help-icon-tooltip`, `frontend/src/index.css`). `<h2>제목<span className="help-icon">?<span className="help-icon-tooltip">설명</span></span></h2>` 형태 — 자료실 포함 전 메뉴 화면에 이미 적용됨. 새 화면에 설명 문구를 넣을 때 기본으로 이 패턴을 쓴다.
 - **`work_places` 등록/수정은 위도/경도를 직접 입력받지 않고 주소(`address`)만 입력받아 서버가 카카오 로컬 API로 지오코딩한다** (`backend/src/lib/geocode.ts`). API 키(`KAKAO_REST_API_KEY`)는 백엔드 시크릿으로만 보관하고 프론트에는 절대 노출하지 않음 — 그래서 지오코딩 호출은 항상 `POST/PATCH /work-places`에서 서버가 대행. 로컬 개발 시 `backend/.dev.vars`(gitignore됨, `.dev.vars.example` 참고)에 키를 넣어야 동작함. 카카오 디벨로퍼스 앱에서 "카카오맵" 제품이 활성화돼 있어야 API가 응답함(비활성 시 403 `OPEN_MAP_AND_LOCAL service disabled`).
+- **`backend/src/routes/employees.ts`의 `employeeDetailPublic`은 `passwordHash`/`viewPinHash`를 DB 단에서부터 제외한 조회용 객체다.** 목록/상세/생성/수정/퇴사처리 응답은 전부 이걸 쓴다. `POST /:id/unlock`만 예외 — 내부적으로 `viewPinHash`와 bcrypt 비교를 해야 해서 전체 컬럼을 포함하는 `employeeDetail`을 그대로 쓴다. 새 엔드포인트가 조회용 PIN/비밀번호 해시를 실제로 검증해야 하는 경우가 아니면 `employeeDetailPublic`을 쓴다.
+- **`frontend/src/api/client.ts`의 `api.getCached`/`api.invalidateCache`는 부서/직급/역할처럼 여러 화면이 재사용하지만 자주 안 바뀌는 참조데이터 전용 캐시다.** 자주 바뀌는 데이터(직원 목록, 근태/연차 등)에는 쓰지 않는다. 캐시 대상 데이터를 CRUD하는 화면은 자체 `load()`에서 반드시 `invalidateCache` 후 `getCached`를 호출해야 다른 화면에도 최신값이 반영된다(현재 `DepartmentsPage`/`ReferenceDataPage`/`RolesPage`가 이 패턴).
 - **비밀번호 재설정은 관리자 승인 없이 카카오 계정 연동(OAuth)만으로 본인이 직접 한다.** `employees.kakaoUserId`(unique)에 미리 연동해둔 카카오 고유 ID가 있어야 하며, 없는 계정은 `mustChangePassword`와 동일한 패턴으로 로그인 직후 `/link-kakao`로 강제 이동된다(프론트 `RequireAuth.tsx`). 재설정 흐름: `GET /auth/kakao/authorize-url`(비로그인 가능) → 카카오 인증 → `POST /auth/kakao/reset-verify`(인가코드로 카카오 ID 확인 후 `password_reset_tokens`에 10분 만료 1회용 토큰 발급) → `POST /auth/kakao/reset-complete`(토큰+새 비밀번호). 카카오 로그인 Client ID는 지오코딩과 같은 카카오 앱의 `KAKAO_REST_API_KEY`를 재사용하고 Client Secret만 별도 시크릿(`KAKAO_LOGIN_CLIENT_SECRET`)으로 관리 — 전화번호/이메일 같은 민감 동의항목을 요청하지 않아 카카오 측 비즈니스 심사가 필요 없다(`backend/src/lib/kakaoOAuth.ts`). 예전 관리자 승인 이력 테이블(`password_reset_requests`)은 삭제하지 않고 그대로 남아있지만 더 이상 새로 쓰이지 않음. `generateTempPassword()`(고정값 `qwer1234!`)는 신규 직원 등록 시에만 쓰이고 재설정에는 더 이상 쓰이지 않는다.
 
 ## 기능 구현 상태
@@ -118,23 +125,23 @@ frontend/src/
 - 직원관리 접근을 관리자 전용으로 제한, 마이페이지 자가조회 PIN으로 전환 (커밋 `adcc99b`)
 - 마이페이지: PIN 설정/변경 시 로그인 비밀번호 재확인 + 정보수정을 팝업으로 전환 (커밋 `c91caa3`)
 - 직원관리 팝업에 자유서술형 "기타" 메모 필드 추가 (커밋 `115eff9`)
+- 자료실 기능 신설: 전자결재 아래 "커뮤니티" 카테고리에 직원 파일 업로드/공유, R2 저장 (커밋 `68127e9`)
+- 자료실 고도화: 업로드 팝업화, 부서별/등록자별/분류별 필터, 공개범위에 부서공개 추가, 보건증/등본 공개범위 고정, 보건증 유효기간 기재+정렬, 컬럼 순서 조정 (커밋 `dd6e5fa`, `a1bd38f`, `3c633b6`, `6f9a7fd`, `9ae6969`, `74335df`, `47440b1`)
+- 조직도 UI 개선: 카드 크기 확대, 부서 6명 초과 시 그리드 분할, 화면 축소 시 비율 유지 (커밋 `56159bd`)
+- 전 화면 안내 문구를 제목 옆 물음표 아이콘 호버 툴팁 패턴으로 통일 (자료실 포함 12개 화면) (커밋 `c71c05f`, `4a92104`)
+- 성능 최적화: DB 인덱스 6개 추가, employees 응답 민감컬럼(passwordHash/viewPinHash) DB단 제외, 부서/직급/역할 참조데이터 프론트 캐싱 (커밋 `142566a`)
 
 **미구현**: 없음 (`App.tsx`/`menuData.ts`의 `ComingSoonPage` 대상 메뉴가 현재 모두 실제 화면으로 연결됨). 향후 새 메뉴가 추가되면 다시 이 자리에 기록.
 
 ## 현재 작업 진행 상황 (수동 갱신 섹션)
 
-> 기준: 2026-08-18. 전자결제(전자결재) 시스템 1단계는 커밋 완료(`c3ec5a5`, `52669b6`, `09c083d`, 아직 push는 안 함). 조직도 기능 기본형(직급 서열 기반 트리 + 부서 담당 임원)도 커밋 완료(`a50ac68`). 그 외 직원관리 관련 커밋 다수(`932f403`~`115eff9`, 다른 세션 작업)도 반영됨 — 전부 "기능 구현 상태" 참고.
+> 기준: 2026-08-18. 자료실(커뮤니티) 기능 신설부터 성능 최적화(DB 인덱스/employees 응답 축소/참조데이터 캐싱)까지 이번 세션 작업 전부 커밋 완료(`68127e9`~`142566a`, 상세는 "기능 구현 상태" 참고). 성능 최적화 건은 마이그레이션 0016 포함 운영/테스트 양쪽 배포 및 로컬 검증까지 완료 — **미커밋 파일 없음, working tree clean.** 의도적으로 보류한 항목(이유는 `C:\Users\LG gram\.claude\plans\piped-juggling-fog.md` 참고): `leaveAccrual.ts` 배치 N+1, `getPermissionCodes`/actor 중복조회 제거, 직원/자료실/전체문서함/근태내역 목록 페이지네이션 — 전부 현재 데이터량에서 이론적 문제 수준이라 실제로 느려질 때 별도 진행.
 >
-> **조직도 UI 다듬기(2026-08-18, 이번 세션) — 코드는 완성/배포까지 끝났지만 아직 커밋 안 됨(`frontend/src/pages/OrgChartPage.tsx`, `frontend/src/index.css`, `frontend/package.json`):**
-> - 임원/부서원 카드 크기를 부서원 카드 기준으로 통일 확대(150px→210px 등), 부서 상자 안 직원은 6명까지 세로로 쌓고 초과 시 CSS Grid(`grid-auto-flow: column`)로 오른쪽에 새 열이 생기도록 변경.
-> - **화면이 좁아지면 줄바꿈 대신 조직도 전체가 비율대로 축소되도록 구현** — `.orgchart-root-row`/`.orgchart-dept-row`를 `flex-wrap: nowrap`으로 바꾸고, 실측 자연 폭(`offsetWidth`, transform과 무관하게 항상 축소 전 크기를 반환)과 뷰포트 폭을 비교해 필요할 때만 `transform: scale()`을 적용(`ResizeObserver` + `resize` 이벤트로 재계산). 카드 클릭 시 이름/부서/직급/휴대폰/내선번호 모달도 함께 추가됨.
-> - **버그 수정 이력(이번 세션에서 순차 발견/수정)**: ① `.orgchart`의 `margin-top`이 스케일 대상에 안 들어가 뷰포트 높이 계산에서 빠지면서 화면이 작아질수록 부서 상자 아래쪽이 잘리던 문제 → margin을 스케일 밖(뷰포트 쪽)으로 이동해서 해결. ② SVG 연결선이 `transform: scale()`이 걸린 `.orgchart` **내부의 자식**이라 이미 스케일된 좌표가 부모 transform으로 한 번 더 축소되던 이중 스케일링 버그(화면이 작아질수록 선이 상자에서 점점 어긋남) → SVG를 스케일 안 걸리는 `.orgchart-scale-viewport` 바깥(뷰포트 기준 절대 위치)으로 이동해서 해결. ③ 한글 웹폰트(Noto Sans KR)가 초기 렌더 이후 늦게 로드되며 카드 위치가 미세하게 밀리던 문제 → `document.fonts.ready` 완료 시 좌표 재계산 추가로 보정. 500~1440px 여러 창 너비에서 연결선-상자 위치가 픽셀 단위로 정확히 일치하는 것까지 확인 후 배포함.
-> - **[인프라] 프론트엔드 배포 방식이 Cloudflare Pages → Workers로 자동 전환됨을 발견**: 예전 `wrangler pages deploy dist --project-name=...` 명령이 조용히 실제 서비스 도메인과 무관한 곳에 배포되는 함정이 있었음(실제로 한 번 이 함정에 걸려서 운영 반영이 안 됐던 걸 `wrangler deployments list`로 뒤늦게 발견 → 올바른 명령으로 재배포함). `frontend/package.json`의 `deploy`/`deploy:test` 스크립트를 `wrangler deploy --config dist/wrangler.json --name <이름>`으로 수정 완료(위 "배포 환경" 섹션에도 기록됨) — 이 package.json 변경도 아직 미커밋.
-> - 사용자가 "작업완료"라고 밝힘 — 이번 세션에서 명시적으로 요청받았지만 미처리된 항목은 없음. 다음 세션은 사용자가 새로 요청하는 내용을 그대로 받으면 됨.
+> **운영 DB 직접 변경(코드 아님, git에 안 잡힘)**: A0003(정지영) 계정의 역할을 운영 D1에서 `직원`(role_id=1) → `관리자`(role_id=3, 전체권한)로 변경함. 사용자 요청으로 진행, 재로그인 시 반영.
 >
 > **참고**: 이 프로젝트는 같은 폴더에서 여러 세션이 동시에 작업하는 경우가 있다 — 다른 세션이 만든 미커밋 변경을 발견해도 임의로 되돌리지 말고, 무엇인지 파악한 뒤 그대로 두거나 사용자에게 확인할 것.
 >
-> **미완료 항목(전자결제와 별개, 여전히 미해결)**: `KAKAO_REST_API_KEY` 테스트 환경 시크릿이 아직 미등록 — `wrangler secret put KAKAO_REST_API_KEY --env test`. 이게 없으면 테스트 환경에서는 근무지 지오코딩뿐 아니라 카카오 로그인(연동/재설정)도 `client_id=undefined`로 실패한다(운영은 이미 등록되어 있어 정상 동작 확인함. 다만 테스트 환경은 `VITE_REQUIRE_KAKAO_LINK=false`라 카카오 연동 자체가 강제되진 않음).
+> **미완료 항목(여전히 미해결)**: `KAKAO_REST_API_KEY` 테스트 환경 시크릿이 아직 미등록 — `wrangler secret put KAKAO_REST_API_KEY --env test`. 이게 없으면 테스트 환경에서는 근무지 지오코딩뿐 아니라 카카오 로그인(연동/재설정)도 `client_id=undefined`로 실패한다(운영은 이미 등록되어 있어 정상 동작 확인함. 다만 테스트 환경은 `VITE_REQUIRE_KAKAO_LINK=false`라 카카오 연동 자체가 강제되진 않음).
 
 ## 세션 시작/종료 규칙
 

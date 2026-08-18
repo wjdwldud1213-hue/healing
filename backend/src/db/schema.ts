@@ -443,8 +443,9 @@ export const passwordResetTokens = sqliteTable("password_reset_tokens", {
 
 // ── 자료실 (직원 업로드 문서) ────────────────────────────
 // 주민등록등본/보건증 등 직원이 직접 올리는 파일. 실제 파일은 R2(DOCUMENTS 버킷)에 저장하고
-// 이 테이블은 메타데이터+공개범위만 관리한다. visibility=PUBLIC은 전 직원에게, ADMIN은
-// 업로더 본인과 EMPLOYEE_WRITE 보유자에게만 노출된다(라우트에서 매번 재확인).
+// 이 테이블은 메타데이터+공개범위만 관리한다. visibility=PUBLIC은 전 직원에게, DEPARTMENT는
+// 업로더와 같은 부서 소속(department_id 기준)에게, ADMIN은 업로더 본인과 EMPLOYEE_WRITE
+// 보유자에게만 노출된다(라우트에서 매번 재확인).
 export const documents = sqliteTable(
   "documents",
   {
@@ -457,11 +458,11 @@ export const documents = sqliteTable(
     storageKey: text("storage_key").notNull(),
     mimeType: text("mime_type").notNull(),
     fileSize: integer("file_size").notNull(),
-    visibility: text("visibility", { enum: ["PUBLIC", "ADMIN"] }).notNull(),
+    visibility: text("visibility", { enum: ["PUBLIC", "DEPARTMENT", "ADMIN"] }).notNull(),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (t) => [
-    check("documents_visibility_check", sql`${t.visibility} IN ('PUBLIC', 'ADMIN')`),
+    check("documents_visibility_check", sql`${t.visibility} IN ('PUBLIC', 'DEPARTMENT', 'ADMIN')`),
     check(
       "documents_category_check",
       sql`${t.category} IN ('주민등록등본', '보건증', '기타')`,

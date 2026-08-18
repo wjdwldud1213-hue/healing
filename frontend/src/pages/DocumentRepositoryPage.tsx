@@ -13,6 +13,7 @@ const CATEGORY_LABEL: Record<DocumentCategory, string> = {
 
 const VISIBILITY_LABEL: Record<DocumentVisibility, string> = {
   PUBLIC: "전체공개",
+  DEPARTMENT: "부서공개",
   ADMIN: "관리자공개",
 };
 
@@ -72,6 +73,7 @@ function UploadDocumentModal({ onDone }: { onDone: () => void }) {
           공개범위
           <select value={visibility} onChange={(e) => setVisibility(e.target.value as DocumentVisibility)}>
             <option value="ADMIN">관리자공개</option>
+            <option value="DEPARTMENT">부서공개</option>
             <option value="PUBLIC">전체공개</option>
           </select>
         </label>
@@ -142,7 +144,7 @@ export function DocumentRepositoryPage() {
       <h2>자료실</h2>
       <p className="hint">
         주민등록등본/보건증 등 개인 서류를 직접 올릴 수 있습니다. "전체공개"는 모든 직원이,
-        "관리자공개"는 본인과 관리자만 볼 수 있습니다.
+        "부서공개"는 본인과 같은 부서 직원만, "관리자공개"는 본인과 관리자만 볼 수 있습니다.
       </p>
 
       <div className="toolbar">

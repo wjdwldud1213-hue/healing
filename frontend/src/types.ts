@@ -202,7 +202,7 @@ export type RecommendedApprovalStep = { stepOrder: number; approver: ApproverCan
 
 // ── 자료실 ──────────────────────────────────────────
 export type DocumentCategory = "주민등록등본" | "보건증" | "기타";
-export type DocumentVisibility = "PUBLIC" | "ADMIN";
+export type DocumentVisibility = "PUBLIC" | "DEPARTMENT" | "ADMIN";
 
 export type StoredDocument = {
   id: number;

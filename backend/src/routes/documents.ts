@@ -17,11 +17,15 @@ type Category = (typeof CATEGORIES)[number];
 async function canSeeDocument(
   db: ReturnType<typeof getDb>,
   actorId: string,
-  doc: { employeeId: string; visibility: "PUBLIC" | "ADMIN" },
+  doc: { employeeId: string; visibility: "PUBLIC" | "DEPARTMENT" | "ADMIN" },
 ) {
   if (doc.visibility === "PUBLIC") return true;
   if (doc.employeeId === actorId) return true;
   const actor = await db.query.employees.findFirst({ where: eq(employees.employeeId, actorId) });
+  if (doc.visibility === "DEPARTMENT") {
+    const uploader = await db.query.employees.findFirst({ where: eq(employees.employeeId, doc.employeeId) });
+    if (uploader && uploader.departmentId === actor!.departmentId) return true;
+  }
   const codes = await getPermissionCodes(db, actor!.roleId);
   return codes.has("EMPLOYEE_WRITE");
 }
@@ -32,10 +36,14 @@ documentsRoute.get("/", async (c) => {
   const actor = await db.query.employees.findFirst({ where: eq(employees.employeeId, actorId) });
   const codes = await getPermissionCodes(db, actor!.roleId);
 
-  const rows = await db.query.documents.findMany({
+  const candidateRows = await db.query.documents.findMany({
     where: codes.has("EMPLOYEE_WRITE")
       ? undefined
-      : or(eq(documents.visibility, "PUBLIC"), eq(documents.employeeId, actorId)),
+      : or(
+          eq(documents.visibility, "PUBLIC"),
+          eq(documents.visibility, "DEPARTMENT"),
+          eq(documents.employeeId, actorId),
+        ),
     orderBy: (d, { desc }) => [desc(d.createdAt)],
     with: {
       employee: {
@@ -44,6 +52,17 @@ documentsRoute.get("/", async (c) => {
       },
     },
   });
+
+  // DEPARTMENT 공개는 SQL where절만으로 부서 일치까지 걸러내기 어려워, 이미 함께 가져온
+  // employee.department로 여기서 마저 필터링한다(관리자는 애초에 전체를 봐도 되므로 제외).
+  const rows = codes.has("EMPLOYEE_WRITE")
+    ? candidateRows
+    : candidateRows.filter(
+        (doc) =>
+          doc.visibility !== "DEPARTMENT" ||
+          doc.employeeId === actorId ||
+          doc.employee.department.id === actor!.departmentId,
+      );
 
   return c.json(rows);
 });
@@ -68,7 +87,7 @@ documentsRoute.post("/", async (c) => {
   if (typeof category !== "string" || !CATEGORIES.includes(category as Category)) {
     return c.json({ error: "카테고리를 선택하세요." }, 400);
   }
-  if (visibility !== "PUBLIC" && visibility !== "ADMIN") {
+  if (visibility !== "PUBLIC" && visibility !== "DEPARTMENT" && visibility !== "ADMIN") {
     return c.json({ error: "공개범위를 선택하세요." }, 400);
   }
 

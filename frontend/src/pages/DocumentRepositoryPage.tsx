@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { api, API_BASE } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -15,12 +15,6 @@ const VISIBILITY_LABEL: Record<DocumentVisibility, string> = {
   PUBLIC: "전체공개",
   ADMIN: "관리자공개",
 };
-
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-}
 
 function UploadDocumentModal({ onDone }: { onDone: () => void }) {
   const [file, setFile] = useState<File | null>(null);
@@ -65,7 +59,7 @@ function UploadDocumentModal({ onDone }: { onDone: () => void }) {
           />
         </label>
         <label>
-          카테고리
+          분류
           <select value={category} onChange={(e) => setCategory(e.target.value as DocumentCategory)}>
             {(Object.keys(CATEGORY_LABEL) as DocumentCategory[]).map((c) => (
               <option key={c} value={c}>
@@ -96,7 +90,7 @@ function UploadDocumentModal({ onDone }: { onDone: () => void }) {
 }
 
 // 직원이 직접 파일(주민등록등본/보건증 등)을 올리는 자료실. 전체공개는 전 직원에게,
-// 관리자공개는 업로더 본인과 EMPLOYEE_WRITE 보유자에게만 노출된다(백엔드가 매번 재확인).
+// 관리자공개는 등록자 본인과 EMPLOYEE_WRITE 보유자에게만 노출된다(백엔드가 매번 재확인).
 export function DocumentRepositoryPage() {
   const { currentUser } = useAuth();
   const canWrite = currentUser?.permissions?.includes("EMPLOYEE_WRITE") ?? false;
@@ -104,6 +98,10 @@ export function DocumentRepositoryPage() {
   const [documents, setDocuments] = useState<StoredDocument[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
+
+  const [departmentFilter, setDepartmentFilter] = useState<number | "">("");
+  const [uploaderFilter, setUploaderFilter] = useState<string | "">("");
+  const [categoryFilter, setCategoryFilter] = useState<DocumentCategory | "">("");
 
   function load() {
     api
@@ -113,6 +111,25 @@ export function DocumentRepositoryPage() {
   }
 
   useEffect(load, []);
+
+  const departments = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const doc of documents) map.set(doc.employee.department.id, doc.employee.department.name);
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [documents]);
+
+  const uploaders = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const doc of documents) map.set(doc.employee.employeeId, doc.employee.name);
+    return Array.from(map.entries()).map(([employeeId, name]) => ({ employeeId, name }));
+  }, [documents]);
+
+  const filteredDocuments = documents.filter((doc) => {
+    if (departmentFilter && doc.employee.department.id !== departmentFilter) return false;
+    if (uploaderFilter && doc.employee.employeeId !== uploaderFilter) return false;
+    if (categoryFilter && doc.category !== categoryFilter) return false;
+    return true;
+  });
 
   async function handleDelete(doc: StoredDocument) {
     if (!confirm(`${doc.fileName} 파일을 삭제할까요?`)) return;
@@ -129,6 +146,36 @@ export function DocumentRepositoryPage() {
       </p>
 
       <div className="toolbar">
+        <select
+          value={departmentFilter}
+          onChange={(e) => setDepartmentFilter(e.target.value ? Number(e.target.value) : "")}
+        >
+          <option value="">부서별</option>
+          {departments.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
+          ))}
+        </select>
+        <select value={uploaderFilter} onChange={(e) => setUploaderFilter(e.target.value)}>
+          <option value="">등록자별</option>
+          {uploaders.map((u) => (
+            <option key={u.employeeId} value={u.employeeId}>
+              {u.name}
+            </option>
+          ))}
+        </select>
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value as DocumentCategory | "")}
+        >
+          <option value="">분류별</option>
+          {(Object.keys(CATEGORY_LABEL) as DocumentCategory[]).map((c) => (
+            <option key={c} value={c}>
+              {CATEGORY_LABEL[c]}
+            </option>
+          ))}
+        </select>
         <button type="button" className="toolbar-end" onClick={() => setUploadOpen(true)}>
           업로드
         </button>
@@ -138,30 +185,28 @@ export function DocumentRepositoryPage() {
       <table>
         <thead>
           <tr>
+            <th>등록자</th>
+            <th>분류</th>
             <th>파일명</th>
-            <th>카테고리</th>
-            <th>업로더</th>
             <th>공개범위</th>
-            <th>크기</th>
-            <th>업로드일</th>
             <th></th>
+            <th>업로드일</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {documents.map((doc) => (
+          {filteredDocuments.map((doc) => (
             <tr key={doc.id}>
-              <td>{doc.fileName}</td>
-              <td>{CATEGORY_LABEL[doc.category]}</td>
               <td>{doc.employee.name}</td>
+              <td>{CATEGORY_LABEL[doc.category]}</td>
+              <td>{doc.fileName}</td>
               <td>{VISIBILITY_LABEL[doc.visibility]}</td>
-              <td>{formatFileSize(doc.fileSize)}</td>
-              <td>{doc.createdAt.slice(0, 10)}</td>
               <td>
                 <a href={`${API_BASE}/documents/${doc.id}/download`} target="_blank" rel="noreferrer">
                   다운로드
                 </a>
               </td>
+              <td>{doc.createdAt.slice(0, 10)}</td>
               <td>
                 {(doc.employeeId === currentUser?.employeeId || canWrite) && (
                   <button type="button" onClick={() => handleDelete(doc)}>

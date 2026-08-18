@@ -37,7 +37,12 @@ documentsRoute.get("/", async (c) => {
       ? undefined
       : or(eq(documents.visibility, "PUBLIC"), eq(documents.employeeId, actorId)),
     orderBy: (d, { desc }) => [desc(d.createdAt)],
-    with: { employee: { columns: { employeeId: true, name: true } } },
+    with: {
+      employee: {
+        columns: { employeeId: true, name: true },
+        with: { department: { columns: { id: true, name: true } } },
+      },
+    },
   });
 
   return c.json(rows);

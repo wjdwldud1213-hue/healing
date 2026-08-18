@@ -214,5 +214,5 @@ export type StoredDocument = {
   fileSize: number;
   visibility: DocumentVisibility;
   createdAt: string;
-  employee: { employeeId: string; name: string };
+  employee: { employeeId: string; name: string; department: { id: number; name: string } };
 };

@@ -9,11 +9,16 @@ database_name = "groupware-db"
 database_id = "7ab55077-6c43-4c7e-b86d-001b1e20f54d"
 migrations_dir = "drizzle"
 
+# 자료실(직원 업로드 문서 — 주민등록등본/보건증 등) 파일 저장용 R2 버킷.
+[[r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "healingfood-documents"
+
 # 매일 UTC 15:00(KST 00:00)에 연차 자동발생 배치(scheduled 핸들러)를 실행한다.
 [triggers]
 crons = ["0 15 * * *"]
 
-# ── 스테이징(테스트) 환경 — 운영과 완전히 분리된 Worker/D1. `wrangler deploy --env test`로 배포 ──
+# ── 스테이징(테스트) 환경 — 운영과 완전히 분리된 Worker/D1/R2. `wrangler deploy --env test`로 배포 ──
 [env.test]
 name = "healingfood-api-test"
 
@@ -22,6 +27,10 @@ binding = "DB"
 database_name = "groupware-db-test"
 database_id = "e8d8d423-4270-4ce5-85ac-5cbee0e00a91"
 migrations_dir = "drizzle"
+
+[[env.test.r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "healingfood-documents-test"
 
 [env.test.triggers]
 crons = ["0 15 * * *"]

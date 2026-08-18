@@ -441,6 +441,34 @@ export const passwordResetTokens = sqliteTable("password_reset_tokens", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+// ── 자료실 (직원 업로드 문서) ────────────────────────────
+// 주민등록등본/보건증 등 직원이 직접 올리는 파일. 실제 파일은 R2(DOCUMENTS 버킷)에 저장하고
+// 이 테이블은 메타데이터+공개범위만 관리한다. visibility=PUBLIC은 전 직원에게, ADMIN은
+// 업로더 본인과 EMPLOYEE_WRITE 보유자에게만 노출된다(라우트에서 매번 재확인).
+export const documents = sqliteTable(
+  "documents",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    employeeId: text("employee_id")
+      .notNull()
+      .references(() => employees.employeeId),
+    category: text("category", { enum: ["주민등록등본", "보건증", "기타"] }).notNull(),
+    fileName: text("file_name").notNull(),
+    storageKey: text("storage_key").notNull(),
+    mimeType: text("mime_type").notNull(),
+    fileSize: integer("file_size").notNull(),
+    visibility: text("visibility", { enum: ["PUBLIC", "ADMIN"] }).notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => [
+    check("documents_visibility_check", sql`${t.visibility} IN ('PUBLIC', 'ADMIN')`),
+    check(
+      "documents_category_check",
+      sql`${t.category} IN ('주민등록등본', '보건증', '기타')`,
+    ),
+  ],
+);
+
 // ── 관계 (조회 편의용) ────────────────────────────────
 export const departmentsRelations = relations(departments, ({ one, many }) => ({
   employees: many(employees),
@@ -480,6 +508,11 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
   sessions: many(sessions),
   attendanceLogs: many(attendanceLogs),
   passwordResetTokens: many(passwordResetTokens),
+  documents: many(documents),
+}));
+
+export const documentsRelations = relations(documents, ({ one }) => ({
+  employee: one(employees, { fields: [documents.employeeId], references: [employees.employeeId] }),
 }));
 
 export const workPlacesRelations = relations(workPlaces, ({ many }) => ({

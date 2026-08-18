@@ -199,3 +199,20 @@ export type ApproverCandidate = {
 };
 
 export type RecommendedApprovalStep = { stepOrder: number; approver: ApproverCandidate | null };
+
+// ── 자료실 ──────────────────────────────────────────
+export type DocumentCategory = "주민등록등본" | "보건증" | "기타";
+export type DocumentVisibility = "PUBLIC" | "ADMIN";
+
+export type StoredDocument = {
+  id: number;
+  employeeId: string;
+  category: DocumentCategory;
+  fileName: string;
+  storageKey: string;
+  mimeType: string;
+  fileSize: number;
+  visibility: DocumentVisibility;
+  createdAt: string;
+  employee: { employeeId: string; name: string };
+};

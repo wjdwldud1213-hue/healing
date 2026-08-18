@@ -1,5 +1,6 @@
 export type Bindings = {
   DB: D1Database;
+  DOCUMENTS: R2Bucket;
   KAKAO_REST_API_KEY: string;
   // 카카오 로그인(비밀번호 재설정용 계정 연동)은 지오코딩과 같은 카카오 앱을 쓰므로
   // Client ID는 KAKAO_REST_API_KEY를 그대로 재사용하고, Client Secret만 별도로 둔다.

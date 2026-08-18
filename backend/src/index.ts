@@ -11,6 +11,7 @@ import { leaveRoute } from "./routes/leave";
 import { workPlacesRoute } from "./routes/workPlaces";
 import { attendanceRoute } from "./routes/attendance";
 import { approvalRoute } from "./routes/approval";
+import { documentsRoute } from "./routes/documents";
 import { runLeaveAccrualBatch } from "./lib/leaveAccrual";
 import { getDb } from "./lib/db";
 import type { Bindings } from "./types";
@@ -50,6 +51,7 @@ app.route("/leave", leaveRoute);
 app.route("/work-places", workPlacesRoute);
 app.route("/attendance", attendanceRoute);
 app.route("/approval", approvalRoute);
+app.route("/documents", documentsRoute);
 
 export default {
   fetch: app.fetch,

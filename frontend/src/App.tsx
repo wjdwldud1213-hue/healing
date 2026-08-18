@@ -24,6 +24,7 @@ import { WorkPlacesPage } from "./pages/WorkPlacesPage";
 import { ApprovalDraftsPage } from "./pages/ApprovalDraftsPage";
 import { ApprovalInboxPage } from "./pages/ApprovalInboxPage";
 import { ApprovalAllDocumentsPage } from "./pages/ApprovalAllDocumentsPage";
+import { DocumentRepositoryPage } from "./pages/DocumentRepositoryPage";
 
 // "직원 관리" 화면은 관리자(EMPLOYEE_WRITE)만 접근 가능 — 부서관리자도 완전히 막혀 있고,
 // 조직도가 대신 전 직원에게 열린 인력 구조 조회 화면 역할을 한다.
@@ -53,6 +54,7 @@ export default function App() {
               <Route path="/kakao/link-callback" element={<KakaoLinkCallbackPage />} />
               <Route path="/coming-soon/:feature" element={<ComingSoonPage />} />
               <Route path="/org-chart" element={<OrgChartPage />} />
+              <Route path="/documents" element={<DocumentRepositoryPage />} />
 
               <Route element={<RequirePermission anyOf={CAN_VIEW_EMPLOYEE_LIST} />}>
                 <Route path="/employees" element={<EmployeesPage />} />

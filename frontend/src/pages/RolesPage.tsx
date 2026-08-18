@@ -53,6 +53,7 @@ export function RolesPage() {
 
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
   }
 
   async function handleDrop(targetId: number) {
@@ -159,7 +160,10 @@ export function RolesPage() {
             <tr
               key={r.id}
               draggable
-              onDragStart={() => setDraggedId(r.id)}
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = "move";
+                setDraggedId(r.id);
+              }}
               onDragOver={handleDragOver}
               onDrop={() => handleDrop(r.id)}
               onDragEnd={() => setDraggedId(null)}

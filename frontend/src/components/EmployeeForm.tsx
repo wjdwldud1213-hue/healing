@@ -56,6 +56,10 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
   const [address, setAddress] = useState(employee?.address ?? "");
   const [baseSalary, setBaseSalary] = useState("");
   const [initialLeaveDays, setInitialLeaveDays] = useState("");
+  const [salaryUnlocked, setSalaryUnlocked] = useState(false);
+  const [salaryPin, setSalaryPin] = useState("");
+  const [salaryUnlockError, setSalaryUnlockError] = useState<string | null>(null);
+  const [salaryUnlockLoading, setSalaryUnlockLoading] = useState(false);
   const [employmentStatus, setEmploymentStatus] = useState<Extract<EmploymentStatus, "ACTIVE" | "LEAVE">>(
     employee?.employmentStatus === "LEAVE" ? "LEAVE" : "ACTIVE",
   );
@@ -73,6 +77,20 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
       setRoles(r.filter((x) => x.isActive));
     });
   }, []);
+
+  async function handleSalaryUnlock() {
+    if (!employee) return;
+    setSalaryUnlockError(null);
+    setSalaryUnlockLoading(true);
+    try {
+      await api.post(`/employees/${employee.employeeId}/unlock`, { pin: salaryPin });
+      setSalaryUnlocked(true);
+    } catch (err) {
+      setSalaryUnlockError((err as Error).message);
+    } finally {
+      setSalaryUnlockLoading(false);
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -102,6 +120,7 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
         const updated = await api.patch<Employee>(`/employees/${employee.employeeId}`, {
           departmentId,
           jobGradeId,
+          hireDate,
           address: address || null,
           mobilePhone,
           extensionNumber: extensionNumber || null,
@@ -110,6 +129,8 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
           employmentType,
           isOwnerOperator: jobType === "DELIVERY" ? isOwnerOperator : null,
           ...(canEditStatus ? { employmentStatus } : {}),
+          ...(salaryUnlocked && baseSalary ? { baseSalary: Number(baseSalary) } : {}),
+          ...(salaryUnlocked && initialLeaveDays ? { additionalLeaveDays: Number(initialLeaveDays) } : {}),
         });
         onDone(updated);
       }
@@ -214,11 +235,9 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
             type="date"
             value={hireDate}
             onChange={(e) => setHireDate(e.target.value)}
-            disabled={mode === "edit"}
             required
           />
         </label>
-        {mode === "edit" && <p className="hint">입사일은 등록 후에는 변경할 수 없습니다.</p>}
         <label>
           주소
           <input value={address} onChange={(e) => setAddress(e.target.value)} />
@@ -248,6 +267,53 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
               placeholder="미입력 시 연차 이력을 만들지 않음"
             />
           </label>
+        )}
+        {mode === "edit" && !salaryUnlocked && (
+          <div className="stacked-form">
+            <p className="hint">
+              급여/연차일수 조정은 개인정보라 이 직원의 조회용 비밀번호(PIN)를 입력해야 볼 수
+              있습니다.
+            </p>
+            <label>
+              조회용 비밀번호(PIN)
+              <input
+                type="password"
+                inputMode="numeric"
+                value={salaryPin}
+                onChange={(e) => setSalaryPin(e.target.value)}
+              />
+            </label>
+            {salaryUnlockError && <p className="error">{salaryUnlockError}</p>}
+            <button type="button" onClick={handleSalaryUnlock} disabled={salaryUnlockLoading}>
+              {salaryUnlockLoading ? "확인 중..." : "잠금 해제"}
+            </button>
+          </div>
+        )}
+        {mode === "edit" && salaryUnlocked && (
+          <>
+            <label>
+              급여 조정 (원)
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={baseSalary}
+                onChange={(e) => setBaseSalary(e.target.value)}
+                placeholder="변경 시에만 입력 (새 급여 이력이 추가됩니다)"
+              />
+            </label>
+            <label>
+              추가 부여 연차일수
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                value={initialLeaveDays}
+                onChange={(e) => setInitialLeaveDays(e.target.value)}
+                placeholder="부여할 때만 입력 (기존 잔여일수에 더해집니다)"
+              />
+            </label>
+          </>
         )}
         {canEditStatus && (
           <label>

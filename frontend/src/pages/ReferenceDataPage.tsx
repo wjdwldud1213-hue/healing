@@ -37,6 +37,7 @@ export function ReferenceDataPage() {
 
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
   }
 
   async function handleDrop(targetId: number) {
@@ -93,7 +94,10 @@ export function ReferenceDataPage() {
             <tr
               key={g.id}
               draggable
-              onDragStart={() => setDraggedId(g.id)}
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = "move";
+                setDraggedId(g.id);
+              }}
               onDragOver={handleDragOver}
               onDrop={() => handleDrop(g.id)}
               onDragEnd={() => setDraggedId(null)}

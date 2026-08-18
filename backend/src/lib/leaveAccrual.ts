@@ -74,13 +74,14 @@ export function computeAnnualGrantDays(hireDateStr: string, targetYear: number):
 
 // employee_leave_balances(연도별 집계)에 반영하고 leave_grants(감사 이력)에 한 행 남긴다.
 // 이월(carriedOverDays)은 정책상 항상 0으로 둔다 — 미사용 연차는 이월 없이 소멸.
-async function grantLeave(
+export async function grantLeave(
   db: Db,
   employeeId: string,
   year: number,
   days: number,
   reason: string,
   effectiveDate: string,
+  createdBy?: string,
 ) {
   const existingBalance = await db.query.employeeLeaveBalances.findFirst({
     where: and(eq(employeeLeaveBalances.employeeId, employeeId), eq(employeeLeaveBalances.year, year)),
@@ -99,7 +100,7 @@ async function grantLeave(
       carriedOverDays: 0,
     });
   }
-  await db.insert(leaveGrants).values({ employeeId, year, days, reason, effectiveDate });
+  await db.insert(leaveGrants).values({ employeeId, year, days, reason, effectiveDate, createdBy });
 }
 
 /**

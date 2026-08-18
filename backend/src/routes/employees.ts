@@ -4,7 +4,7 @@ import { and, eq, ne } from "drizzle-orm";
 import { getDb } from "../lib/db";
 import { generateEmployeeId, generateTempPassword } from "../lib/employeeId";
 import { getPermissionCodes } from "../lib/permissions";
-import { accrueLeaveForNewEmployee } from "../lib/leaveAccrual";
+import { accrueLeaveForNewEmployee, grantLeave } from "../lib/leaveAccrual";
 import {
   departments,
   employeeAssignmentHistory,
@@ -145,6 +145,7 @@ employeesRoute.post("/:id/unlock", async (c) => {
     const actor = await db.query.employees.findFirst({ where: eq(employees.employeeId, actorId) });
     const codes = await getPermissionCodes(db, actor!.roleId);
     const allowed =
+      codes.has("EMPLOYEE_WRITE") ||
       codes.has("EMPLOYEE_READ_ALL") ||
       (codes.has("EMPLOYEE_READ_DEPARTMENT") && target.departmentId === actor!.departmentId);
     if (!allowed) return c.json({ error: "조회 권한이 없습니다." }, 403);
@@ -393,10 +394,20 @@ employeesRoute.patch("/:id", async (c) => {
   if (body.employmentType != null && !["REGULAR", "CONTRACT"].includes(body.employmentType as string)) {
     return c.json({ error: "고용형태는 정규직 또는 계약직이어야 합니다." }, 400);
   }
+  if (typeof body.hireDate === "string" && !body.hireDate.trim()) {
+    return c.json({ error: "입사일을 입력하세요." }, 400);
+  }
+  const baseSalary = typeof body.baseSalary === "number" ? body.baseSalary : undefined;
+  if (baseSalary != null && baseSalary < 0) return c.json({ error: "급여는 0 이상이어야 합니다." }, 400);
+  const additionalLeaveDays = typeof body.additionalLeaveDays === "number" ? body.additionalLeaveDays : undefined;
+  if (additionalLeaveDays != null && additionalLeaveDays <= 0) {
+    return c.json({ error: "연차일수는 0보다 커야 합니다." }, 400);
+  }
 
-  // 이름/입사일은 발급 후 수정 불가 — PATCH 바디에 실려와도 절대 반영하지 않는다(관리자가 직접
+  // 이름은 발급 후 수정 불가 — PATCH 바디에 실려와도 절대 반영하지 않는다(관리자가 직접
   // API를 호출해도 우회 불가하도록 UI가 아니라 여기서 막는다).
   const updates: Record<string, unknown> = { updatedAt: new Date().toISOString(), updatedBy: actorId };
+  if (typeof body.hireDate === "string" && body.hireDate.trim()) updates.hireDate = body.hireDate.trim();
   if ("address" in body) updates.address = body.address ?? null;
   if (typeof body.mobilePhone === "string") updates.mobilePhone = body.mobilePhone.trim();
   if ("extensionNumber" in body) updates.extensionNumber = body.extensionNumber ?? null;
@@ -441,6 +452,20 @@ employeesRoute.patch("/:id", async (c) => {
     ]);
   } else {
     await db.update(employees).set(updates).where(eq(employees.employeeId, employeeId));
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  if (baseSalary != null) {
+    await db.insert(employeeCompensations).values({
+      employeeId,
+      baseSalary,
+      effectiveDate: today,
+      reason: "급여 조정",
+      createdBy: actorId,
+    });
+  }
+  if (additionalLeaveDays != null) {
+    await grantLeave(db, employeeId, Number(today.slice(0, 4)), additionalLeaveDays, "관리자 조정 부여", today, actorId);
   }
 
   const updated = await db.query.employees.findFirst({

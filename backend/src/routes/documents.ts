@@ -14,6 +14,13 @@ const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "ap
 const CATEGORIES = ["주민등록등본", "보건증", "기타"] as const;
 type Category = (typeof CATEGORIES)[number];
 
+// 일부 분류는 공개범위가 고정이다 — 보건증은 식품위생 확인 등을 위해 전체공개,
+// 등본은 주소/가족관계 등 민감정보라 관리자공개로 강제한다. "기타"만 자유 선택.
+const FIXED_VISIBILITY_BY_CATEGORY: Partial<Record<Category, "PUBLIC" | "DEPARTMENT" | "ADMIN">> = {
+  보건증: "PUBLIC",
+  주민등록등본: "ADMIN",
+};
+
 async function canSeeDocument(
   db: ReturnType<typeof getDb>,
   actorId: string,
@@ -91,6 +98,10 @@ documentsRoute.post("/", async (c) => {
     return c.json({ error: "공개범위를 선택하세요." }, 400);
   }
 
+  // 프론트가 분류별 고정 공개범위를 선택 못 하게 막아도, 여기서 다시 강제해야 우회를 막는다.
+  const fixedVisibility = FIXED_VISIBILITY_BY_CATEGORY[category as Category];
+  const finalVisibility = fixedVisibility ?? visibility;
+
   const storageKey = `${actorId}/${crypto.randomUUID()}-${file.name}`;
   await c.env.DOCUMENTS.put(storageKey, await file.arrayBuffer(), {
     httpMetadata: { contentType: file.type },
@@ -105,7 +116,7 @@ documentsRoute.post("/", async (c) => {
       storageKey,
       mimeType: file.type,
       fileSize: file.size,
-      visibility,
+      visibility: finalVisibility,
     })
     .returning();
 

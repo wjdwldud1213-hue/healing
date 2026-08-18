@@ -17,12 +17,26 @@ const VISIBILITY_LABEL: Record<DocumentVisibility, string> = {
   ADMIN: "관리자공개",
 };
 
+// 일부 분류는 공개범위가 고정이다(백엔드도 동일 규칙으로 재검증한다) — 보건증은
+// 전체공개, 등본은 관리자공개로 강제하고 "기타"만 자유롭게 고를 수 있다.
+const FIXED_VISIBILITY_BY_CATEGORY: Partial<Record<DocumentCategory, DocumentVisibility>> = {
+  보건증: "PUBLIC",
+  주민등록등본: "ADMIN",
+};
+
 function UploadDocumentModal({ onDone }: { onDone: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [category, setCategory] = useState<DocumentCategory>("주민등록등본");
   const [visibility, setVisibility] = useState<DocumentVisibility>("ADMIN");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const fixedVisibility = FIXED_VISIBILITY_BY_CATEGORY[category];
+
+  function handleCategoryChange(next: DocumentCategory) {
+    setCategory(next);
+    const fixed = FIXED_VISIBILITY_BY_CATEGORY[next];
+    if (fixed) setVisibility(fixed);
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -61,7 +75,7 @@ function UploadDocumentModal({ onDone }: { onDone: () => void }) {
         </label>
         <label>
           분류
-          <select value={category} onChange={(e) => setCategory(e.target.value as DocumentCategory)}>
+          <select value={category} onChange={(e) => handleCategoryChange(e.target.value as DocumentCategory)}>
             {(Object.keys(CATEGORY_LABEL) as DocumentCategory[]).map((c) => (
               <option key={c} value={c}>
                 {CATEGORY_LABEL[c]}
@@ -71,12 +85,21 @@ function UploadDocumentModal({ onDone }: { onDone: () => void }) {
         </label>
         <label>
           공개범위
-          <select value={visibility} onChange={(e) => setVisibility(e.target.value as DocumentVisibility)}>
+          <select
+            value={visibility}
+            onChange={(e) => setVisibility(e.target.value as DocumentVisibility)}
+            disabled={!!fixedVisibility}
+          >
             <option value="ADMIN">관리자공개</option>
             <option value="DEPARTMENT">부서공개</option>
             <option value="PUBLIC">전체공개</option>
           </select>
         </label>
+        {fixedVisibility && (
+          <p className="hint">
+            "{CATEGORY_LABEL[category]}"는 공개범위가 {VISIBILITY_LABEL[fixedVisibility]}로 고정됩니다.
+          </p>
+        )}
         {error && <p className="error">{error}</p>}
         <div className="form-actions">
           <button type="submit" disabled={submitting}>

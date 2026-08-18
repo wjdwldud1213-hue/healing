@@ -62,9 +62,10 @@ function stripPrivateFields<T extends { passwordHash?: unknown; viewPinHash?: un
   return rest;
 }
 
-// 부서관리자는 소속 부서만, 시스템관리자(EMPLOYEE_READ_ALL)는 전체를 제한 없이 볼 수 있다.
-// 그 외(READ 권한 없는 일반직원)는 조직도 등에서 전사 인력 구조를 볼 수 있어야 하므로 부서
-// 제한 없이 전체를 조회하되, 마스킹(아래 canSeeAll)으로 개인정보만 가려서 내려준다.
+// "직원 관리" 화면은 EMPLOYEE_WRITE(관리자) 전용이라 프론트 라우트 자체가 막혀 있지만, 이
+// 목록 API는 조직도처럼 전 직원에게 열린 화면에서도 같이 쓴다. EMPLOYEE_READ_ALL(관리자급)만
+// 부서 제한 없이 전체를 보고, 그 외(부서관리자 포함 — 더 이상 부서 단위 특례를 주지 않는다)는
+// 마스킹(아래 canSeeAll)으로 개인정보만 가려서 전사 조회만 가능하다.
 employeesRoute.get("/", async (c) => {
   const db = getDb(c.env.DB);
   const actorId = c.get("currentUserId")!;
@@ -80,8 +81,6 @@ employeesRoute.get("/", async (c) => {
 
   if (codes.has("EMPLOYEE_READ_ALL")) {
     // 제한 없음
-  } else if (codes.has("EMPLOYEE_READ_DEPARTMENT")) {
-    conditions.push(eq(employees.departmentId, actor.departmentId));
   } else if (!status) {
     // 마스킹 대상 조회자는 employmentStatus를 못 보므로(null), 퇴사자 제외를 클라이언트가
     // 판단할 수 없다 — 서버가 기본적으로 퇴사자를 응답에서 제외한다(조직도 등 전사 조회용).
@@ -189,12 +188,21 @@ employeesRoute.post("/:id/set-view-pin", async (c) => {
   return c.json({ ok: true });
 });
 
-// 직원 수정 화면에서 급여/연차일수를 보여주기 위한 현재값 조회. 급여는 가장 최근 이력,
-// 연차는 올해 employee_leave_balances 집계(자동발생 배치가 입사일 기준으로 이미 계산해둔 값)를
-// 그대로 내려준다 — 그래서 관리자가 직접 입력하지 않아도 입사일 기준 계산값이 노출된다.
-employeesRoute.get("/:id/compensation-leave-summary", requirePermission("EMPLOYEE_WRITE"), async (c) => {
+// 직원 수정 화면(관리자)과 마이페이지 본인 PIN 잠금해제(본인)에서 급여/연차일수를 보여주기
+// 위한 현재값 조회. 급여는 가장 최근 이력, 연차는 올해 employee_leave_balances 집계
+// (자동발생 배치가 입사일 기준으로 이미 계산해둔 값)를 그대로 내려준다 — 그래서 관리자가
+// 직접 입력하지 않아도 입사일 기준 계산값이 노출된다.
+employeesRoute.get("/:id/compensation-leave-summary", async (c) => {
   const targetId = c.req.param("id");
+  const actorId = c.get("currentUserId")!;
   const db = getDb(c.env.DB);
+
+  if (targetId !== actorId) {
+    const actor = await db.query.employees.findFirst({ where: eq(employees.employeeId, actorId) });
+    const codes = await getPermissionCodes(db, actor!.roleId);
+    if (!codes.has("EMPLOYEE_WRITE")) return c.json({ error: "조회 권한이 없습니다." }, 403);
+  }
+
   const currentYear = new Date().getFullYear();
 
   const latestCompensation = await db.query.employeeCompensations.findFirst({

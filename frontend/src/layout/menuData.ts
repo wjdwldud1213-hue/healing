@@ -43,7 +43,7 @@ export const menuData: MenuGroup[] = [
         id: "empManage",
         label: "직원 관리",
         path: "/employees",
-        anyOfPermissions: ["EMPLOYEE_READ_ALL", "EMPLOYEE_READ_DEPARTMENT"],
+        anyOfPermissions: ["EMPLOYEE_WRITE"],
       },
     ],
   },

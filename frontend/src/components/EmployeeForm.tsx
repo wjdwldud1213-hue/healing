@@ -9,7 +9,6 @@ import type {
   EmploymentType,
   JobGrade,
   JobType,
-  MaskableEmployee,
   Role,
 } from "../types";
 
@@ -26,7 +25,7 @@ const EMPLOYMENT_TYPE_LABEL: Record<EmploymentType, string> = {
 
 type Props = {
   mode: "create" | "edit";
-  employee?: MaskableEmployee;
+  employee?: Employee;
   onDone: (result?: Employee) => void;
 };
 

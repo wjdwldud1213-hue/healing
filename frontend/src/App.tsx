@@ -25,7 +25,9 @@ import { ApprovalDraftsPage } from "./pages/ApprovalDraftsPage";
 import { ApprovalInboxPage } from "./pages/ApprovalInboxPage";
 import { ApprovalAllDocumentsPage } from "./pages/ApprovalAllDocumentsPage";
 
-const CAN_VIEW_EMPLOYEE_LIST = ["EMPLOYEE_READ_ALL", "EMPLOYEE_READ_DEPARTMENT"];
+// "직원 관리" 화면은 관리자(EMPLOYEE_WRITE)만 접근 가능 — 부서관리자도 완전히 막혀 있고,
+// 조직도가 대신 전 직원에게 열린 인력 구조 조회 화면 역할을 한다.
+const CAN_VIEW_EMPLOYEE_LIST = ["EMPLOYEE_WRITE"];
 
 export default function App() {
   return (

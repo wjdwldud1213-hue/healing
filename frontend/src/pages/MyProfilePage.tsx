@@ -4,8 +4,11 @@ import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { formatPhoneNumber } from "../lib/phone";
 
-const STATUS_LABEL: Record<string, string> = { ACTIVE: "재직", LEAVE: "휴직", RESIGNED: "퇴사" };
+type CompensationLeaveSummary = { currentSalary: number | null; currentYearGrantedDays: number };
 
+// 사번/이름/부서/직급/내선번호/주소는 PIN 없이 항상 보이고, 입사일/급여/연차일수/휴대폰번호는
+// 본인이 설정한 조회용 비밀번호(PIN)를 입력해야 보인다(다른 사람이 아니라 본인이 스스로
+// 잠금해제하는 자가조회 방식 — POST /employees/:id/unlock을 본인 사번으로 호출).
 export function MyProfilePage() {
   const { currentUser, refresh } = useAuth();
   const [mobilePhone, setMobilePhone] = useState(formatPhoneNumber(currentUser?.mobilePhone ?? ""));
@@ -22,7 +25,32 @@ export function MyProfilePage() {
   const [pinError, setPinError] = useState<string | null>(null);
   const [pinSubmitting, setPinSubmitting] = useState(false);
 
+  const [unlocked, setUnlocked] = useState(false);
+  const [unlockPin, setUnlockPin] = useState("");
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [unlockLoading, setUnlockLoading] = useState(false);
+  const [summary, setSummary] = useState<CompensationLeaveSummary | null>(null);
+
   if (!currentUser) return null;
+
+  async function handleUnlock(e: FormEvent) {
+    e.preventDefault();
+    setUnlockError(null);
+    setUnlockLoading(true);
+    try {
+      await api.post(`/employees/${currentUser!.employeeId}/unlock`, { pin: unlockPin });
+      const result = await api.get<CompensationLeaveSummary>(
+        `/employees/${currentUser!.employeeId}/compensation-leave-summary`,
+      );
+      setSummary(result);
+      setUnlocked(true);
+      setMobilePhone(formatPhoneNumber(currentUser!.mobilePhone ?? ""));
+    } catch (err) {
+      setUnlockError((err as Error).message);
+    } finally {
+      setUnlockLoading(false);
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -79,21 +107,67 @@ export function MyProfilePage() {
           <b>직급</b> {currentUser.jobGrade.name}
         </p>
         <p>
-          <b>재직상태</b> {STATUS_LABEL[currentUser.employmentStatus]}
+          <b>입사일</b>{" "}
+          {unlocked ? currentUser.hireDate : <span className="hint">🔒 PIN 입력 후 확인 가능</span>}
         </p>
         <p>
-          <b>역할</b> {currentUser.role.name}
+          <b>급여</b>{" "}
+          {unlocked ? (
+            summary?.currentSalary != null ? (
+              `${summary.currentSalary.toLocaleString()}원`
+            ) : (
+              "이력 없음"
+            )
+          ) : (
+            <span className="hint">🔒 PIN 입력 후 확인 가능</span>
+          )}
+        </p>
+        <p>
+          <b>연차일수</b>{" "}
+          {unlocked ? `${summary?.currentYearGrantedDays ?? 0}일` : <span className="hint">🔒 PIN 입력 후 확인 가능</span>}
+        </p>
+        <p>
+          <b>휴대폰번호</b>{" "}
+          {unlocked ? currentUser.mobilePhone : <span className="hint">🔒 PIN 입력 후 확인 가능</span>}
+        </p>
+        <p>
+          <b>내선번호</b> {currentUser.extensionNumber ?? "-"}
+        </p>
+        <p>
+          <b>주소</b> {currentUser.address ?? "-"}
         </p>
         <p className="hint">
-          이름/부서/직급 등은 관리자만 변경할 수 있습니다. 아래 연락처/주소만 직접 수정할 수
+          이름/부서/직급 등은 관리자만 변경할 수 있습니다. 아래에서 연락처/주소만 직접 수정할 수
           있습니다.
         </p>
+
+        {!unlocked && (
+          <form onSubmit={handleUnlock} className="stacked-form">
+            <label>
+              조회용 비밀번호(PIN)
+              <input
+                type="password"
+                inputMode="numeric"
+                value={unlockPin}
+                onChange={(e) => setUnlockPin(e.target.value)}
+                required
+              />
+            </label>
+            {unlockError && <p className="error">{unlockError}</p>}
+            <button type="submit" disabled={unlockLoading}>
+              {unlockLoading ? "확인 중..." : "잠금 해제"}
+            </button>
+          </form>
+        )}
+
         <form onSubmit={handleSubmit} className="stacked-form">
           <label>
             휴대폰번호
             <input
-              value={mobilePhone}
+              value={unlocked ? mobilePhone : ""}
               onChange={(e) => setMobilePhone(formatPhoneNumber(e.target.value))}
+              placeholder={unlocked ? "" : "PIN 입력 후 수정 가능"}
+              disabled={!unlocked}
               required
             />
           </label>
@@ -123,8 +197,8 @@ export function MyProfilePage() {
       <div className="card">
         <h3>조회용 비밀번호(PIN)</h3>
         <p className="hint">
-          이름/부서/직급/직군/내선번호를 제외한 내 개인정보는 다른 조회자에게 기본적으로
-          가려집니다. 여기서 설정한 비밀번호를 입력해야만 그 조회자가 확인할 수 있습니다.
+          입사일/급여/연차일수/휴대폰번호처럼 개인정보에 해당하는 항목은 이 화면에서도 기본적으로
+          가려집니다. 여기서 설정한 비밀번호를 입력해야 위에서 직접 확인할 수 있습니다.
         </p>
         <form onSubmit={handleSetPin} className="stacked-form">
           <label>

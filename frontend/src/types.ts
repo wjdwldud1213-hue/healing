@@ -65,37 +65,6 @@ export type Employee = {
   isExecutive?: boolean;
 };
 
-// GET /employees, GET /employees/:id는 EMPLOYEE_WRITE 권한이 없는 조회자에게 이름/부서/직급/
-// 직군/내선번호를 제외한 필드를 null로 마스킹해서 내려준다 — 그 응답을 다루는 화면
-// (직원 목록/상세보기)에서는 Employee 대신 이 타입을 쓴다. PIN으로 잠금해제
-// (POST /employees/:id/unlock)하면 서버가 마스킹 없는 완전한 데이터를 돌려준다.
-export type MaskableEmployee = Omit<
-  Employee,
-  | "jobTitleId"
-  | "hireDate"
-  | "employmentStatus"
-  | "statusChangedAt"
-  | "employmentType"
-  | "isOwnerOperator"
-  | "mobilePhone"
-  | "address"
-  | "roleId"
-  | "jobTitle"
-  | "role"
-> & {
-  jobTitleId: number | null;
-  hireDate: string | null;
-  employmentStatus: EmploymentStatus | null;
-  statusChangedAt: string | null;
-  employmentType: EmploymentType | null;
-  isOwnerOperator: boolean | null;
-  mobilePhone: string | null;
-  address: string | null;
-  roleId: number | null;
-  jobTitle: JobTitle | null;
-  role: Role | null;
-};
-
 export type LeaveBalance = {
   id: number;
   employeeId: string;

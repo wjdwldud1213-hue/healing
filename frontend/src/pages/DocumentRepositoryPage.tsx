@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api, API_BASE } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { Modal } from "../components/Modal";
 import type { DocumentCategory, DocumentVisibility, StoredDocument } from "../types";
 
 const CATEGORY_LABEL: Record<DocumentCategory, string> = {
@@ -21,6 +22,79 @@ function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
+function UploadDocumentModal({ onDone }: { onDone: () => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [category, setCategory] = useState<DocumentCategory>("주민등록등본");
+  const [visibility, setVisibility] = useState<DocumentVisibility>("ADMIN");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!file) {
+      setError("파일을 선택하세요.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("category", category);
+      formData.append("visibility", visibility);
+      await api.upload("/documents", formData);
+      onDone();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <h3>자료 업로드</h3>
+      <form onSubmit={handleSubmit} className="stacked-form">
+        <label>
+          파일
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            required
+          />
+        </label>
+        <label>
+          카테고리
+          <select value={category} onChange={(e) => setCategory(e.target.value as DocumentCategory)}>
+            {(Object.keys(CATEGORY_LABEL) as DocumentCategory[]).map((c) => (
+              <option key={c} value={c}>
+                {CATEGORY_LABEL[c]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          공개범위
+          <select value={visibility} onChange={(e) => setVisibility(e.target.value as DocumentVisibility)}>
+            <option value="ADMIN">관리자공개</option>
+            <option value="PUBLIC">전체공개</option>
+          </select>
+        </label>
+        {error && <p className="error">{error}</p>}
+        <div className="form-actions">
+          <button type="submit" disabled={submitting}>
+            {submitting ? "업로드 중..." : "업로드"}
+          </button>
+          <button type="button" onClick={onDone} disabled={submitting}>
+            취소
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 // 직원이 직접 파일(주민등록등본/보건증 등)을 올리는 자료실. 전체공개는 전 직원에게,
 // 관리자공개는 업로더 본인과 EMPLOYEE_WRITE 보유자에게만 노출된다(백엔드가 매번 재확인).
 export function DocumentRepositoryPage() {
@@ -29,13 +103,7 @@ export function DocumentRepositoryPage() {
 
   const [documents, setDocuments] = useState<StoredDocument[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  const [file, setFile] = useState<File | null>(null);
-  const [category, setCategory] = useState<DocumentCategory>("주민등록등본");
-  const [visibility, setVisibility] = useState<DocumentVisibility>("ADMIN");
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
 
   function load() {
     api
@@ -45,30 +113,6 @@ export function DocumentRepositoryPage() {
   }
 
   useEffect(load, []);
-
-  async function handleUpload(e: FormEvent) {
-    e.preventDefault();
-    setUploadError(null);
-    if (!file) {
-      setUploadError("파일을 선택하세요.");
-      return;
-    }
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("category", category);
-      formData.append("visibility", visibility);
-      await api.upload("/documents", formData);
-      setFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      load();
-    } catch (err) {
-      setUploadError((err as Error).message);
-    } finally {
-      setUploading(false);
-    }
-  }
 
   async function handleDelete(doc: StoredDocument) {
     if (!confirm(`${doc.fileName} 파일을 삭제할까요?`)) return;
@@ -84,29 +128,11 @@ export function DocumentRepositoryPage() {
         "관리자공개"는 본인과 관리자만 볼 수 있습니다.
       </p>
 
-      <form onSubmit={handleUpload} className="inline-form">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,application/pdf"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-        />
-        <select value={category} onChange={(e) => setCategory(e.target.value as DocumentCategory)}>
-          {(Object.keys(CATEGORY_LABEL) as DocumentCategory[]).map((c) => (
-            <option key={c} value={c}>
-              {CATEGORY_LABEL[c]}
-            </option>
-          ))}
-        </select>
-        <select value={visibility} onChange={(e) => setVisibility(e.target.value as DocumentVisibility)}>
-          <option value="ADMIN">관리자공개</option>
-          <option value="PUBLIC">전체공개</option>
-        </select>
-        <button type="submit" disabled={uploading}>
-          {uploading ? "업로드 중..." : "업로드"}
+      <div className="toolbar">
+        <button type="button" className="toolbar-end" onClick={() => setUploadOpen(true)}>
+          업로드
         </button>
-      </form>
-      {uploadError && <p className="error">{uploadError}</p>}
+      </div>
       {error && <p className="error">{error}</p>}
 
       <table>
@@ -147,6 +173,17 @@ export function DocumentRepositoryPage() {
           ))}
         </tbody>
       </table>
+
+      {uploadOpen && (
+        <Modal onClose={() => setUploadOpen(false)}>
+          <UploadDocumentModal
+            onDone={() => {
+              setUploadOpen(false);
+              load();
+            }}
+          />
+        </Modal>
+      )}
     </section>
   );
 }

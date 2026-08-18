@@ -32,6 +32,13 @@ const employeeDetail = {
   },
 } as const;
 
+// 목록/상세 등 클라이언트에 그대로 내려줄 응답은 DB 단에서부터 민감 컬럼을 제외한다.
+// viewPinHash가 실제로 필요한 /:id/unlock(내부 bcrypt 검증용)만 employeeDetail을 그대로 쓴다.
+const employeeDetailPublic = {
+  ...employeeDetail,
+  columns: { passwordHash: false, viewPinHash: false },
+} as const;
+
 // 이름/부서/직급/직군/내선번호를 제외한 나머지는 개인정보로 보고 기본적으로 가린다.
 // EMPLOYEE_WRITE 권한이 없는 조회자에게는 목록/상세 응답에서 이 필드들을 null로 비운 뒤,
 // 해당 직원의 조회용 비밀번호(PIN)를 맞혀야만(POST /:id/unlock) 실제 값을 내려준다.
@@ -89,18 +96,13 @@ employeesRoute.get("/", async (c) => {
   }
 
   const rows = await db.query.employees.findMany({
-    ...employeeDetail,
+    ...employeeDetailPublic,
     where: conditions.length ? and(...conditions) : undefined,
     orderBy: (e, { asc }) => [asc(e.employeeId)],
   });
 
   const canSeeAll = codes.has("EMPLOYEE_WRITE");
-  return c.json(
-    rows.map((row) => {
-      const stripped = stripPrivateFields(row);
-      return canSeeAll ? stripped : maskSensitiveFields(stripped);
-    }),
-  );
+  return c.json(rows.map((row) => (canSeeAll ? row : maskSensitiveFields(row))));
 });
 
 employeesRoute.get("/:id", async (c) => {
@@ -109,7 +111,7 @@ employeesRoute.get("/:id", async (c) => {
   const db = getDb(c.env.DB);
 
   const target = await db.query.employees.findFirst({
-    ...employeeDetail,
+    ...employeeDetailPublic,
     where: eq(employees.employeeId, targetId),
   });
   if (!target) return c.json({ error: "직원을 찾을 수 없습니다." }, 404);
@@ -124,8 +126,7 @@ employeesRoute.get("/:id", async (c) => {
     if (!allowed) return c.json({ error: "조회 권한이 없습니다." }, 403);
   }
 
-  const stripped = stripPrivateFields(target);
-  return c.json(codes.has("EMPLOYEE_WRITE") ? stripped : maskSensitiveFields(stripped));
+  return c.json(codes.has("EMPLOYEE_WRITE") ? target : maskSensitiveFields(target));
 });
 
 // 해당 직원의 조회용 비밀번호(PIN)를 맞히면, 마스킹 없는 전체 정보를 그 자리에서 돌려준다.
@@ -397,11 +398,11 @@ employeesRoute.post("/", requirePermission("EMPLOYEE_WRITE"), async (c) => {
   }
 
   const created = await db.query.employees.findFirst({
-    ...employeeDetail,
+    ...employeeDetailPublic,
     where: eq(employees.employeeId, employeeId),
   });
 
-  return c.json({ ...created, passwordHash: undefined, tempPassword }, 201);
+  return c.json({ ...created, tempPassword }, 201);
 });
 
 const SELF_EDIT_FIELDS = new Set(["mobilePhone", "extensionNumber", "address"]);
@@ -516,10 +517,10 @@ employeesRoute.patch("/:id", async (c) => {
   }
 
   const updated = await db.query.employees.findFirst({
-    ...employeeDetail,
+    ...employeeDetailPublic,
     where: eq(employees.employeeId, employeeId),
   });
-  return c.json(stripPrivateFields(updated!));
+  return c.json(updated!);
 });
 
 employeesRoute.post("/:id/resign", requirePermission("EMPLOYEE_WRITE"), async (c) => {
@@ -540,8 +541,8 @@ employeesRoute.post("/:id/resign", requirePermission("EMPLOYEE_WRITE"), async (c
     .where(eq(employees.employeeId, employeeId));
 
   const updated = await db.query.employees.findFirst({
-    ...employeeDetail,
+    ...employeeDetailPublic,
     where: eq(employees.employeeId, employeeId),
   });
-  return c.json(stripPrivateFields(updated!));
+  return c.json(updated!);
 });

@@ -67,9 +67,9 @@ export function EmployeeForm({ mode, employee, onDone }: Props) {
 
   useEffect(() => {
     Promise.all([
-      api.get<Department[]>("/departments"),
-      api.get<JobGrade[]>("/job-grades"),
-      api.get<Role[]>("/roles"),
+      api.getCached<Department[]>("/departments"),
+      api.getCached<JobGrade[]>("/job-grades"),
+      api.getCached<Role[]>("/roles"),
     ]).then(([d, g, r]) => {
       setDepartments(d.filter((x) => x.isActive));
       setJobGrades(g.filter((x) => x.isActive));

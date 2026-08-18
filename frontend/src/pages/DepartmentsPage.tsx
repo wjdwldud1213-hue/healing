@@ -12,7 +12,8 @@ export function DepartmentsPage() {
   const [loading, setLoading] = useState(false);
 
   function load() {
-    api.get<Department[]>("/departments").then(setDepartments).catch((e) => setError(e.message));
+    api.invalidateCache("/departments");
+    api.getCached<Department[]>("/departments").then(setDepartments).catch((e) => setError(e.message));
   }
 
   useEffect(load, []);

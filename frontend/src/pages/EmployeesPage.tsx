@@ -33,7 +33,7 @@ export function EmployeesPage() {
 
   useEffect(load, [departmentFilter, statusFilter]);
   useEffect(() => {
-    api.get<Department[]>("/departments").then(setDepartments);
+    api.getCached<Department[]>("/departments").then(setDepartments);
   }, []);
 
   async function handleResign(employee: Employee) {

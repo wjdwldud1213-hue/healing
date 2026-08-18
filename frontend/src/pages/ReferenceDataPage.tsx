@@ -10,7 +10,8 @@ export function ReferenceDataPage() {
   const [loading, setLoading] = useState(false);
 
   function load() {
-    api.get<JobGrade[]>("/job-grades").then(setJobGrades).catch((e) => setError(e.message));
+    api.invalidateCache("/job-grades");
+    api.getCached<JobGrade[]>("/job-grades").then(setJobGrades).catch((e) => setError(e.message));
   }
 
   useEffect(load, []);

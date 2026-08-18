@@ -29,8 +29,31 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+// 부서/직급/역할처럼 여러 화면이 그대로 재사용하고 자주 안 바뀌는 참조데이터용 캐시.
+// 화면을 옮겨다니거나 모달을 반복해서 열 때마다 같은 목록을 매번 재요청하지 않도록,
+// 진행 중인(또는 완료된) 요청의 Promise를 경로별로 재사용한다. 실패한 요청은 캐시에
+// 남기지 않아 다음 호출에서 재시도된다. 데이터를 바꾸는 화면은 invalidate로 갱신한다.
+const referenceCache = new Map<string, Promise<unknown>>();
+
+function getCached<T>(path: string): Promise<T> {
+  const cached = referenceCache.get(path) as Promise<T> | undefined;
+  if (cached) return cached;
+  const fresh = request<T>(path).catch((err) => {
+    referenceCache.delete(path);
+    throw err;
+  });
+  referenceCache.set(path, fresh);
+  return fresh;
+}
+
+function invalidateCache(path: string) {
+  referenceCache.delete(path);
+}
+
 export const api = {
   get: <T,>(path: string) => request<T>(path),
+  getCached,
+  invalidateCache,
   post: <T,>(path: string, body?: unknown) =>
     request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
   patch: <T,>(path: string, body?: unknown) =>

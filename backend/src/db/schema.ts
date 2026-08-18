@@ -7,6 +7,7 @@ import {
   real,
   primaryKey,
   uniqueIndex,
+  index,
   check,
   type AnySQLiteColumn,
 } from "drizzle-orm/sqlite-core";
@@ -151,6 +152,9 @@ export const employees = sqliteTable(
       sql`${t.employmentStatus} IN ('ACTIVE', 'LEAVE', 'RESIGNED')`,
     ),
     check("employees_job_type_check", sql`${t.jobType} IN ('OFFICE', 'DELIVERY', 'SALES')`),
+    // 목록/조직도 조회(부서 필터, 재직상태 필터)가 상시 이 두 컬럼으로 필터링한다.
+    index("employees_department_id_idx").on(t.departmentId),
+    index("employees_employment_status_idx").on(t.employmentStatus),
   ],
 );
 
@@ -222,18 +226,25 @@ export const employeeLeaveBalances = sqliteTable(
 // employee_leave_balances는 연도별 "현재 집계"만 담고, 언제/왜 발생했는지의 감사 이력은
 // 남지 않는다. employee_compensations(급여 이력)와 동일한 append-only 패턴으로
 // 발생/조정 이벤트마다 한 행씩 쌓는다.
-export const leaveGrants = sqliteTable("leave_grants", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  employeeId: text("employee_id")
-    .notNull()
-    .references(() => employees.employeeId),
-  year: integer("year").notNull(),
-  days: real("days").notNull(), // 이 이벤트로 부여된 일수(양수). 차감은 별도 사유의 음수 행으로 남긴다.
-  reason: text("reason").notNull(), // 예: "입사 시 부여", "연차 자동발생", "관리자 조정"
-  effectiveDate: text("effective_date").notNull(),
-  createdBy: text("created_by"),
-  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-});
+export const leaveGrants = sqliteTable(
+  "leave_grants",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    employeeId: text("employee_id")
+      .notNull()
+      .references(() => employees.employeeId),
+    year: integer("year").notNull(),
+    days: real("days").notNull(), // 이 이벤트로 부여된 일수(양수). 차감은 별도 사유의 음수 행으로 남긴다.
+    reason: text("reason").notNull(), // 예: "입사 시 부여", "연차 자동발생", "관리자 조정"
+    effectiveDate: text("effective_date").notNull(),
+    createdBy: text("created_by"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => [
+    // 연차 자동발생 배치/이력 조회가 직원별로 상시 필터링한다.
+    index("leave_grants_employee_id_idx").on(t.employeeId),
+  ],
+);
 
 // ── 연차 신청 ────────────────────────────────────────
 // status/decidedBy/decidedAt은 결재(승인/반려) 기능이 도입된 뒤에도 그대로 사용된다.
@@ -317,6 +328,8 @@ export const approvalSteps = sqliteTable(
   (t) => [
     uniqueIndex("approval_steps_document_step_idx").on(t.documentId, t.stepOrder),
     check("approval_steps_status_check", sql`${t.status} IN ('PENDING','APPROVED','REJECTED')`),
+    // 결재함(inbox) 조회가 결재자별로 상시 필터링한다.
+    index("approval_steps_approver_id_idx").on(t.approverId),
   ],
 );
 
@@ -385,6 +398,8 @@ export const attendanceLogs = sqliteTable(
       "attendance_logs_check_out_type_check",
       sql`${t.checkOutType} IS NULL OR ${t.checkOutType} IN ('NORMAL', 'FIELD', 'MANUAL')`,
     ),
+    // 근태내역조회 달력이 직원 등치 + 기간 범위 + 정렬을 이 조합으로 수행한다.
+    index("attendance_logs_employee_checkin_idx").on(t.employeeId, t.checkInAt),
   ],
 );
 
@@ -470,6 +485,9 @@ export const documents = sqliteTable(
       "documents_category_check",
       sql`${t.category} IN ('주민등록등본', '보건증', '기타')`,
     ),
+    // 자료실 목록 조회가 공개범위/업로더 조건으로 상시 필터링한다.
+    index("documents_visibility_idx").on(t.visibility),
+    index("documents_employee_id_idx").on(t.employeeId),
   ],
 );
 

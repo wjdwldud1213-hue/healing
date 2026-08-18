@@ -20,7 +20,8 @@ export function RolesPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   function loadRoles() {
-    api.get<Role[]>("/roles").then(setRoles).catch((e) => setError((e as Error).message));
+    api.invalidateCache("/roles");
+    api.getCached<Role[]>("/roles").then(setRoles).catch((e) => setError((e as Error).message));
   }
 
   useEffect(loadRoles, []);

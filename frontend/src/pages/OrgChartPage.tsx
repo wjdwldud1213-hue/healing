@@ -25,7 +25,7 @@ export function OrgChartPage() {
       .get<Employee[]>("/employees")
       .then(setEmployees)
       .catch((e) => setError((e as Error).message));
-    api.get<JobGrade[]>("/job-grades").then(setJobGrades).catch(() => {});
+    api.getCached<JobGrade[]>("/job-grades").then(setJobGrades).catch(() => {});
   }, []);
 
   const { roots, executives, visibleDepartmentGroups } = useMemo(() => {
